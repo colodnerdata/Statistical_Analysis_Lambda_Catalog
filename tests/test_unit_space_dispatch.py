@@ -40,6 +40,10 @@ UNIT_SPACE_FUNCTIONS = (
     "Unit_Space_R_Squared",
     "Unit_Space_Adjusted_R_Squared",
     "Unit_Space_RMSE",
+    "Unit_Space_LOOCV_Residual",
+    "Unit_Space_LOOCV_RMSE",
+    "Unit_Space_LOOCV_MAE",
+    "Smearing_Treatment",
 )
 
 
@@ -179,6 +183,139 @@ def _unit_space_r_squared_mirror(x, y, y_full, include, response_transform,
     if sst == 0:
         return NA
     return 1.0 - sse / sst
+
+
+def _loocv_prediction_refit(x: np.ndarray, y: np.ndarray) -> np.ndarray:
+    """Leave-one-out fit-space prediction for every row, by REFITTING n
+    times — drop row i, fit on the rest, predict at x_i.
+
+    This is the independent derivation DECISIONS.md:2949-2958 demands: the
+    catalog's ``LOOCV_Prediction`` uses the Sherman-Morrison-Woodbury
+    hat-diagonal shortcut (``predictions - h*e/(1-h)``), so a mirror that
+    shared that reading of ``Y_Full`` would produce a green suite and a
+    wrong workbook. Refitting n times is O(n) fits and agrees with the
+    shortcut to floating-point tolerance when both are valid — which is the
+    point: agreement from an independent method, not from a shared formula.
+    """
+    n = x.shape[0]
+    x_with_const = np.column_stack([np.ones(n), x])
+    loo = np.full(n, NA)
+    for i in range(n):
+        mask = np.ones(n, dtype=bool)
+        mask[i] = False
+        # Too few rows to fit (n-1 <= #params): the catalog's
+        # IFERROR(…, NA()) returns #N/A for that row, and so does this.
+        if int(mask.sum()) <= x_with_const.shape[1]:
+            continue
+        beta, *_ = np.linalg.lstsq(x_with_const[mask], y[mask], rcond=None)
+        loo[i] = x_with_const[i] @ beta
+    return loo
+
+
+def _loocv_residual_refit(x: np.ndarray, y: np.ndarray,
+                           include: np.ndarray) -> np.ndarray:
+    """The ordinary (fit-space) leave-one-out residual e_i - 0, by refit:
+    ``y_i - LOO_prediction_i``. This is the reference the reduction
+    invariant (``Unit_Space_LOOCV_Residual ≡ LOOCV_Residual`` under None)
+    is scored against, and it is the same number the sheet's PRESS Residual
+    column carries, so ``LOOCV_RMSE ≡ sqrt(PRESS/n)`` follows.
+    """
+    loo = _loocv_prediction_refit(x[include], y[include])
+    r = np.full(x.shape[0], NA)
+    r[include] = y[include] - loo
+    return r
+
+
+def _unit_space_loocv_residual_mirror(
+    x: np.ndarray, y: np.ndarray, y_full: np.ndarray,
+    include: np.ndarray, response_transform: str, predictor_transform: str,
+    method: str,
+) -> np.ndarray:
+    """=Unit_Space_LOOCV_Residual(...) — the leave-one-out residual in
+    original units.
+
+    Mirrors the catalog's three-step pipeline with ``LOOCV_Prediction``
+    substituted for ``Predictions``:
+
+      loo_fit   = IFERROR(LOOCV_Prediction(X, Y, Include) + shift, NA())
+      y_unit    = Unit_Space_Observed(Y, Y_Full, Include, Context)
+      r_loo     = y_unit - Back_Transform_Response(loo_fit, ctx, Method, sm)
+
+    The smearing factor ``sm`` is the FULL-SAMPLE one (estimated on all n
+    included residuals, the held-out row included) — the small optimism
+    ``Smearing_Treatment`` names. The refit LOO prediction comes from
+    ``_loocv_prediction_refit`` (independent of the hat-diagonal shortcut).
+    """
+    if response_transform not in {"None", "Log"}:
+        return np.full(x.shape[0], NA)
+    if predictor_transform not in {"None", "Log", "Mixed"}:
+        return np.full(x.shape[0], NA)
+    x_inc = x[include]
+    y_inc = np.asarray(y, dtype=float)[include]
+    loo_fit_inc = _loocv_prediction_refit(x_inc, y_inc)
+    y_full_inc = np.asarray(y_full, dtype=float)[include]
+    shift = (y_full_inc - y_inc) if response_transform == "Log" else 0.0
+    loo_fit_with_shift = loo_fit_inc + shift
+    sm = _smearing_factor_mirror(x, y, include, response_transform)
+    loo_pred_unit = _back_transform_response_mirror(
+        loo_fit_with_shift, response_transform, method, sm)
+    y_unit_inc = _unit_space_observed_mirror(y, y_full, include, response_transform)
+    y_unit_inc = y_unit_inc[include]
+    r_inc = y_unit_inc - loo_pred_unit
+    r = np.full(x.shape[0], NA)
+    r[include] = r_inc
+    return r
+
+
+def _unit_space_loocv_rmse_mirror(
+    x: np.ndarray, y: np.ndarray, y_full: np.ndarray,
+    include: np.ndarray, response_transform: str, predictor_transform: str,
+    method: str,
+) -> float:
+    """=Unit_Space_LOOCV_RMSE(...) — SQRT(SUMSQ(r) / ROWS(r)).
+
+    ``ROWS(r)``, not ``COUNT(r)``: an #N/A row (leverage h_i = 1) propagates
+    through SUMSQ, so the divisor is the sample size the fit used. Divisor
+    is ``n`` — every LOO prediction is genuinely out-of-sample, no df are
+    consumed (deliberately differs from ``Unit_Space_RMSE``'s ÷ df_residual).
+    """
+    r = _unit_space_loocv_residual_mirror(
+        x, y, y_full, include, response_transform, predictor_transform, method)
+    r_inc = r[include]
+    if np.any(np.isnan(r_inc)):
+        return NA
+    return math.sqrt(float(np.sum(r_inc ** 2)) / r_inc.size)
+
+
+def _unit_space_loocv_mae_mirror(
+    x: np.ndarray, y: np.ndarray, y_full: np.ndarray,
+    include: np.ndarray, response_transform: str, predictor_transform: str,
+    method: str,
+) -> float:
+    """=Unit_Space_LOOCV_MAE(...) — AVERAGE(ABS(r))."""
+    r = _unit_space_loocv_residual_mirror(
+        x, y, y_full, include, response_transform, predictor_transform, method)
+    r_inc = r[include]
+    if np.any(np.isnan(r_inc)):
+        return NA
+    return float(np.mean(np.abs(r_inc)))
+
+
+def _smearing_treatment_mirror(response_transform: str, method: str) -> str:
+    """=Smearing_Treatment(...) — pure function of (response transform, method):
+    "n/a — no back-transform" under None, "Naive (no smearing)" / "Full-sample
+    Duan (approx.)" under Log, NA() otherwise. The fourth SWITCH arm
+    (fold-specific Duan) is the extension point this mirror does not yet
+    carry."""
+    if response_transform == "None":
+        return "n/a — no back-transform"
+    if response_transform == "Log":
+        if method == "Naive":
+            return "Naive (no smearing)"
+        if method == "Duan":
+            return "Full-sample Duan (approx.)"
+        return NA
+    return NA
 
 
 def _ols_standard_r_squared(x: np.ndarray, y: np.ndarray, include: np.ndarray) -> float:
@@ -589,6 +726,218 @@ def test_unit_space_observed_returns_raw_y_under_log_with_fixed_effects() -> Non
 
 def _is_na(value) -> bool:
     return isinstance(value, float) and math.isnan(value)
+
+
+# ── v3.4 unit-space LOOCV: catalog shape + numeric mirrors ───────────────────
+
+
+def test_unit_space_loocv_residual_substitutes_loocv_prediction_for_predictions() -> None:
+    """=Unit_Space_LOOCV_Residual is Unit_Space_Predictions with
+    LOOCV_Prediction substituted for Predictions: the same shift, the same
+    Unit_Space_Observed observed side, the same Back_Transform_Response
+    dispatch — and an elementwise IFERROR(…, NA()) so a leverage-1 row yields
+    #N/A (mirroring LOOCV_Residual's own IFERROR(e/(1-h), NA()))."""
+    formula = _formula("Unit_Space_LOOCV_Residual")
+    # The Sherman-Morrison-Woodbury step is spelled out rather than delegated
+    # to LOOCV_Prediction, because under Fixed Effects the leverage it uses is
+    # NOT the one LOOCV_Prediction would compute: that function reads the hat
+    # diagonal of the within-demeaned design, which omits the absorbed group
+    # effects. The correction needs its own `h`, so the subtraction lives here.
+    assert "LOOCV_Prediction(" not in formula
+    # The level shift is gated on Log exactly as in Unit_Space_Predictions.
+    assert 'shift,IF(rt="Log",FILTER(Y_Full,filt_arg)-FILTER(Y,filt_arg),0)' in formula
+    assert "fitted,Predictions(X,Y,filt_arg)+shift" in formula
+    assert "loo_fit,IFERROR(fitted-h*e/(1-h),NA())" in formula
+    # h is the within design's hat diagonal without FE, and the equivalent
+    # LSDV design's with it: h_lsdv = h - 1/n + 1/n_g. The shipped h already
+    # carries the single overall intercept's 1/n, which is what is subtracted.
+    assert "h_fit,Hat_Diagonal(X,filt_arg)" in formula
+    assert "h_fit-1/n_obs+1/Group_Size(fe_arg,filt_arg)" in formula
+    # An FE model with no group column returns #N/A rather than the
+    # conditional (within-only) number.
+    assert "fe_ok,OR(absorbed=0,NOT(ISOMITTED(FE_Group)))" in formula
+    assert "IF(NOT(fe_ok),NA()," in formula
+    assert "y_unit,Unit_Space_Observed(Y,Y_Full,filt_arg,context_arg)" in formula
+    assert "r_loo,y_unit-Back_Transform_Response(loo_fit,context_arg,method_arg,sm)" in formula
+    # The same six-pair SWITCH gate the rest of the family uses.
+    assert 'SWITCH(rt&"|"&pt' in formula
+    for pair in ("None|None", "None|Log", "None|Mixed",
+                 "Log|None",  "Log|Log",  "Log|Mixed"):
+        assert f'"{pair}"' in formula, pair
+
+
+def test_unit_space_loocv_rmse_uses_rows_not_count_and_divides_by_n() -> None:
+    """=Unit_Space_LOOCV_RMSE is SQRT(SUMSQ(r) / ROWS(r)). ROWS, not COUNT:
+    an #N/A row propagates through SUMSQ, so the divisor is plainly the
+    sample size the fit used. The divisor is n (÷ n), NOT df_residual —
+    every LOO prediction is genuinely out-of-sample, so no degrees of
+    freedom are consumed. That is the deliberate difference from
+    Unit_Space_RMSE's ÷ df_residual the plan flags."""
+    formula = _formula("Unit_Space_LOOCV_RMSE")
+    assert "Unit_Space_LOOCV_Residual(" in formula
+    assert "SQRT(SUMSQ(r)/ROWS(r))" in formula
+    assert "COUNT(r)" not in formula
+    # Must NOT reach for Residual_Degrees_Of_Freedom (Unit_Space_RMSE does).
+    assert "Residual_Degrees_Of_Freedom" not in formula
+
+
+def test_unit_space_loocv_mae_uses_average_of_abs() -> None:
+    """=Unit_Space_LOOCV_MAE is AVERAGE(ABS(r)) over the same r."""
+    formula = _formula("Unit_Space_LOOCV_MAE")
+    assert "Unit_Space_LOOCV_Residual(" in formula
+    assert "AVERAGE(ABS(r))" in formula
+
+
+def test_smearing_treatment_lists_three_arms_and_falls_through_to_na() -> None:
+    """=Smearing_Treatment is a pure function of (response transform, method)
+    with three arms and an NA() fallthrough — the fourth arm (fold-specific
+    Duan) is the extension point a future PR adds without restructuring."""
+    formula = _formula("Smearing_Treatment")
+    assert 'IF(rt="None","n/a — no back-transform"' in formula
+    assert 'SWITCH(method_arg,' in formula
+    assert '"Naive","Naive (no smearing)"' in formula
+    assert '"Duan","Full-sample Duan (approx.)"' in formula
+    # An unrecognised method under Log, and an unrecognised transform, both
+    # fall through to NA().
+    assert formula.count("NA()") >= 2
+
+
+def test_unit_space_loocv_residual_matches_n_refit_reference_under_log() -> None:
+    """The mirror's LOOCV residual (refit n times, full-sample smearing)
+    must equal an independent n-refit reference: refit dropping row i,
+    back-transform that single LOO prediction through Duan, and form
+    observed - LOO_prediction. Both sides refit; neither uses the
+    hat-diagonal shortcut."""
+    rng = np.random.default_rng(131)
+    x = rng.normal(size=120).reshape(60, 2)
+    log_y = 1.0 + 0.6 * x[:, 0] - 0.4 * x[:, 1] + rng.normal(scale=0.35, size=60)
+    include = np.ones(60, dtype=bool)
+
+    got = _unit_space_loocv_residual_mirror(
+        x, log_y, log_y, include, "Log", "None", "Duan")
+    sm = _smearing_factor_mirror(x, log_y, include, "Log")
+    x_with_const = np.column_stack([np.ones(60), x])
+    expected = np.full(60, NA)
+    for i in range(60):
+        mask = np.ones(60, dtype=bool)
+        mask[i] = False
+        beta, *_ = np.linalg.lstsq(x_with_const[mask], log_y[mask], rcond=None)
+        loo_fit = x_with_const[i] @ beta  # no shift: y_full == y here
+        loo_pred = math.exp(loo_fit) * sm
+        expected[i] = math.exp(log_y[i]) - loo_pred
+    assert np.allclose(got[include], expected[include], rtol=1e-10, atol=1e-10)
+
+
+def test_unit_space_loocv_residual_reduces_to_loocv_residual_under_none() -> None:
+    """Reduction invariant (v3.3 extended to the new pair): under
+    Transform = None, Unit_Space_LOOCV_Residual ≡ the ordinary LOOCV
+    residual (the PRESS Residual column), because the shift is zero and
+    the back-transform is a pass-through."""
+    rng = np.random.default_rng(137)
+    x = rng.normal(size=100).reshape(50, 2)
+    y = 1.0 + 0.5 * x[:, 0] + 0.3 * x[:, 1] + rng.normal(scale=0.4, size=50)
+    include = np.ones(50, dtype=bool)
+    got = _unit_space_loocv_residual_mirror(
+        x, y, y, include, "None", "None", "Duan")
+    expected = _loocv_residual_refit(x, y, include)
+    assert np.allclose(got[include], expected[include], atol=1e-10)
+
+
+def test_unit_space_loocv_rmse_reduces_to_sqrt_press_over_n_under_none() -> None:
+    """Reduction invariant: under Transform = None,
+    Unit_Space_LOOCV_RMSE ≡ sqrt(PRESS / n), where PRESS is the sum of
+    squared LOOCV residuals. The divisor is n (not df_residual), which is
+    what makes this the ÷-n RMSE the AG9 relabel stops claiming."""
+    rng = np.random.default_rng(139)
+    x = rng.normal(size=80).reshape(40, 2)
+    y = 0.5 + 0.4 * x[:, 0] - 0.2 * x[:, 1] + rng.normal(scale=0.3, size=40)
+    include = np.ones(40, dtype=bool)
+    got = _unit_space_loocv_rmse_mirror(
+        x, y, y, include, "None", "None", "Duan")
+    r = _loocv_residual_refit(x, y, include)[include]
+    press = float(np.sum(r ** 2))
+    expected = math.sqrt(press / r.size)
+    assert math.isclose(got, expected, rel_tol=1e-12)
+
+
+def test_unit_space_loocv_mae_reduces_to_mean_abs_loocv_residual_under_none() -> None:
+    """Reduction invariant: under Transform = None, Unit_Space_LOOCV_MAE ≡
+    mean(|LOOCV residual|)."""
+    rng = np.random.default_rng(149)
+    x = rng.normal(size=72).reshape(36, 2)
+    y = 1.0 + 0.3 * x[:, 0] + 0.5 * x[:, 1] + rng.normal(scale=0.4, size=36)
+    include = np.ones(36, dtype=bool)
+    got = _unit_space_loocv_mae_mirror(
+        x, y, y, include, "None", "None", "Duan")
+    r = _loocv_residual_refit(x, y, include)[include]
+    expected = float(np.mean(np.abs(r)))
+    assert math.isclose(got, expected, rel_tol=1e-12)
+
+
+def test_unit_space_loocv_reductions_hold_under_fixed_effects_and_none() -> None:
+    """The reduction invariants must survive Fixed Effects, not just the
+    no-FE case: under FE the sheet's ordinary statistics are within-
+    flavoured (demeaned pair), and the unit-space LOOCV pair has to collapse
+    to the within LOOCV pair under Transform = None — the level shift is
+    inert there, or the reduction silently becomes a total one."""
+    rng = np.random.default_rng(151)
+    groups = np.repeat(np.arange(5), 12)
+    x = rng.normal(size=120).reshape(60, 2)
+    y_full = 30.0 + groups * 7.0 + 0.6 * x[:, 0] - 0.3 * x[:, 1] + rng.normal(
+        scale=0.5, size=60)
+    include = np.ones(60, dtype=bool)
+
+    y_within = y_full.copy()
+    x_within = x.copy()
+    for g in np.unique(groups):
+        mask = groups == g
+        y_within[mask] -= y_within[mask].mean()
+        x_within[mask] -= x_within[mask].mean(axis=0)
+    assert not np.allclose(y_full - y_within, 0.0), "level shift must be non-zero"
+
+    r_unit = _unit_space_loocv_residual_mirror(
+        x_within, y_within, y_full, include, "None", "None", "Duan")
+    r_loo = _loocv_residual_refit(x_within, y_within, include)
+    assert np.allclose(r_unit[include], r_loo[include], atol=1e-9)
+
+    rmse_unit = _unit_space_loocv_rmse_mirror(
+        x_within, y_within, y_full, include, "None", "None", "Duan")
+    r = r_loo[include]
+    assert math.isclose(rmse_unit, math.sqrt(float(np.sum(r ** 2)) / r.size),
+                        rel_tol=1e-12)
+
+
+def test_unit_space_loocv_residual_under_log_differs_from_naive_by_smearing() -> None:
+    """Under Log, the Duan/Naive ratio of the LOOCV residual's fitted side
+    is the smearing factor: Duan multiplies the back-transformed LOO
+    prediction by sm, Naive does not, so the residual differs by exactly
+    that factor on the fitted side."""
+    rng = np.random.default_rng(157)
+    x = rng.normal(size=44).reshape(44, 1)
+    log_y = 0.8 + 0.5 * x.flatten() + rng.normal(scale=0.3, size=44)
+    include = np.ones(44, dtype=bool)
+    r_duan = _unit_space_loocv_residual_mirror(
+        x, log_y, log_y, include, "Log", "None", "Duan")
+    r_naive = _unit_space_loocv_residual_mirror(
+        x, log_y, log_y, include, "Log", "None", "Naive")
+    sm = _smearing_factor_mirror(x, log_y, include, "Log")
+    # observed is the same; the fitted side differs by sm, so the residuals
+    # differ by (sm - 1) * EXP(loo_fit).
+    loo = _loocv_prediction_refit(x[include], log_y[include])
+    fitted_diff = (sm - 1.0) * np.exp(loo)
+    assert np.allclose(r_duan[include] - r_naive[include], -fitted_diff,
+                       rtol=1e-9, atol=1e-9)
+    assert sm > 1.0
+
+
+def test_smearing_treatment_mirror_matches_the_three_rules() -> None:
+    """The mirror's three-way rule is the same the LAMBDA encodes."""
+    assert _smearing_treatment_mirror("None", "Duan") == "n/a — no back-transform"
+    assert _smearing_treatment_mirror("None", "Naive") == "n/a — no back-transform"
+    assert _smearing_treatment_mirror("Log", "Naive") == "Naive (no smearing)"
+    assert _smearing_treatment_mirror("Log", "Duan") == "Full-sample Duan (approx.)"
+    assert _is_na(_smearing_treatment_mirror("Log", "Folded"))
+    assert _is_na(_smearing_treatment_mirror("Sqrt", "Duan"))
 
 
 def main() -> None:  # pragma: no cover - standalone runner

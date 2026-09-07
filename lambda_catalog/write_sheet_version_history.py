@@ -268,6 +268,63 @@ _VERSIONS = [
             "stays at 2.0.0 — the unit-space machinery is Regression-only."
         ),
     },
+    {
+        "version": "3.4.0",
+        "date": "2026-09-06",
+        "breaking": "No",
+        "summary": (
+            "Unit-space LOOCV — cross-validation brought out of fit space. "
+            "v3.3 shipped the unit-space fit (R², Adj R², RMSE in original "
+            "units) but left cross-validation in the space the model was "
+            "fitted in: LOOCV_Residual, LOOCV_Prediction, PRESS, and the hat "
+            "diagonal all reported in log units on a Log-response model. This "
+            "release closes that gap. The Regression sheet gains a "
+            "CROSS-VALIDATED FIT sub-block at AG11:AH14: LOOCV RMSE (Unit) "
+            "and LOOCV MAE (Unit) in original units (rows 12–13), and a "
+            "Smearing Treatment readout (row 14) that names how the smearing "
+            "factor was obtained. The Residual Output zone gains a fourth "
+            "original-units column (BB) carrying the LOOCV residual per "
+            "observation. Four new catalog functions under the "
+            "Back-Transformation subcategory (Unit_Space_LOOCV_Residual, "
+            "Unit_Space_LOOCV_RMSE, Unit_Space_LOOCV_MAE, Smearing_Treatment) "
+            "SWITCH on the same (response_transform, predictor_transform) "
+            "pair as the v3.3 family and return NA() outside the six "
+            "recognised pairs. LOOCV RMSE and MAE use a divisor of n, not "
+            "df_residual — every leave-one-out prediction is genuinely "
+            "out-of-sample, so no degrees of freedom are consumed and the "
+            "pair reads consistently. Under Duan the smearing factor is "
+            "estimated on the full sample including the held-out row, a real "
+            "but small optimism the Smearing Treatment cell states plainly "
+            "('Full-sample Duan (approx.)') rather than hides; fold-specific "
+            "Duan is the fourth SWITCH arm the function is structured to "
+            "receive. Reduction invariant extended, not broken: with "
+            "Transform = None throughout, Unit_Space_LOOCV_Residual equals "
+            "LOOCV_Residual and Unit_Space_LOOCV_RMSE equals sqrt(PRESS/n) "
+            "to fp precision, including under Fixed Effects. The AG9 in-"
+            "sample scalar is relabelled 'SE Regression (Unit)' (formula "
+            "unchanged — it divides by df_residual by design, so the label "
+            "stops promising ÷ n while LOOCV RMSE one row below delivers "
+            "it). New test-model case P08 (Production Lots, Log response, "
+            "quadratic self-interaction) supplies the heavy-tailed leverage "
+            "corner where LOOCV departs materially from the in-sample fit. "
+            "Under Fixed Effects the leave-one-out leverage is the "
+            "equivalent LSDV design's, not the within design's: the "
+            "within hat diagonal omits the absorbed group effects and "
+            "never re-estimates the held-out row's group mean, which "
+            "understates the error. The correction is h_lsdv = h - 1/n "
+            "+ 1/n_g, exact because the within and group-mean "
+            "projections are orthogonal, and it is pinned against "
+            "explicit n-fold LSDV refits. A model that absorbs fixed "
+            "effects without supplying the group column returns #N/A "
+            "rather than the conditional number. "
+            "The default WHO demo (Transform = None) shows no change. "
+            "Catalog grows from 152 to 157 functions (the fifth is "
+            "Group_Size, the per-row group size the FE branch needs). "
+            "The planned train is renumbered by one from Model "
+            "Comparison on: it moves to v3.5, Cluster Role to v3.6, "
+            "and so on through Time Series at v3.13."
+        ),
+    },
 ]
 
 

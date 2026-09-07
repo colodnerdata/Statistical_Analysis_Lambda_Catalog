@@ -144,7 +144,8 @@ _C_AX = 50  # PRESS Residual
 _C_AY = 51  # Cook's Distance (Flagged) — chart data-label helper column
 _C_AZ = 52  # Predicted Y (Original Units) — Residual Output zone (v3.3 unit-space)
 _C_BA = 53  # Residual (Original Units) — Residual Output zone (v3.3 unit-space)
-_C_BB = 54  # chart anchor — formerly _C_AZ; everything past it shifts right by 2
+_C_BB = 54  # LOOCV Residual (Original Units) — Residual Output zone (v3.4 unit-space LOOCV)
+_C_BC = 55  # chart anchor — formerly _C_BB; everything past it shifts right by 1
 
 # The constructed-column count is spec-dependent (19 on the default WHO spec),
 # so bands that v1 sized with the fixed k=18 now cover a generous fixed range.
@@ -236,6 +237,21 @@ _COOKS_CUTOFF = f"IFERROR(F.INV(0.5,{_A_DESIGN_COLUMNS_TOTAL},{_A_RESIDUAL_DF}),
 # block — sibling to the section heading at row 4 — so the rest of the block
 # (rows 6–10) and the prediction column (AL) can reference a single source.
 _A_BACK_TRANSFORM_METHOD = _abs_ref(5, _C_AH)
+# Unit-space block ROW anchors — the single source for the rows the QC harness
+# reads (regression_spec_sheet_io) and the writer (_write_unit_space_block)
+# writes, replacing the bare 6/7/8/9 literals both used to carry. The v3.3
+# block spans rows 4–10; the v3.4 CROSS-VALIDATED FIT sub-block sits at 11–14,
+# so the v3.3 rows and the Comparison_Headline_GoF range ($AH$7:$AH$9) are
+# untouched.
+_ROW_UNIT_SMEARING = 6
+_ROW_UNIT_R2 = 7
+_ROW_UNIT_ADJ_R2 = 8
+_ROW_UNIT_RMSE = 9
+_ROW_UNIT_RESPONSE_SPACE = 10
+_ROW_LOOCV_SUBHEADING = 11
+_ROW_LOOCV_RMSE_UNIT = 12
+_ROW_LOOCV_MAE_UNIT = 13
+_ROW_SMEARING_TREATMENT = 14
 # The two back-transform methods, and the default written into AH5 as a
 # LITERAL. The cell is an input: it must never hold a formula that reads its
 # own address (a circular reference), and the validation list below is what
@@ -255,7 +271,7 @@ _ZONES: tuple[tuple[int, int], ...] = (
     (_C_S, _C_Y),                 # S:Y   — Predictor Summary
     (_C_AA, _C_AH),               # AA:AH — Regression Outputs
     (_C_AJ, _C_AL),               # AJ:AL — Prediction Outputs
-    (_C_AN, _C_BA),               # AN:BA — Residual Output (was AN:AY; v3.3 added AZ/BA)
+    (_C_AN, _C_BB),               # AN:BB — Residual Output (was AN:AY; v3.3 added AZ/BA; v3.4 added BB)
 )
 
 # The ungrouped gap columns (width 2) that separate the zones above. Derived as
@@ -341,12 +357,13 @@ _COLUMN_WIDTHS: tuple[tuple[int, float], ...] = (
     (_C_AY, 12),       # Cook's Distance (Flagged) — chart data-label helper column
     (_C_AZ, 14),       # Predicted Y (Original Units) — v3.3
     (_C_BA, 14),       # Residual (Original Units) — v3.3
+    (_C_BB, 16),       # LOOCV Residual (Original Units) — v3.4
     # ── Post-zone gutter ────────────────────────────────────────────────────
-    # BB is NOT a content column and NOT a zone gap — it is the gutter that
-    # bounds the row-3 header wrap (last content column = BA) and anchors the
+    # BC is NOT a content column and NOT a zone gap — it is the gutter that
+    # bounds the row-3 header wrap (last content column = BB) and anchors the
     # diagnostic charts. Sized here so it reads as a deliberate margin rather
     # than a default-width column.
-    (_C_BB, 15),
+    (_C_BC, 15),
 )
 
 # Every content column in every zone gets exactly one width, and no width is
@@ -410,13 +427,14 @@ _CHART_Y_TICK_FORMATS: dict[str, str] = {
 # Chart label formula cells — one row per diagnostic chart, well below the
 # 2-col x 4-row chart grid's pixel footprint (row_step=320pt starting at row
 # 3, ~85 rows at default row height) so nothing ever renders on top of them.
-# Columns sit past _C_BB (the chart anchor). v3.3 shifted BB to BB+14 (= 68)
+# Columns sit past _C_BC (the chart anchor). v3.3 shifted BB to BB+14 (= 68)
 # to keep the chart anchor letter stable after the AZ/BA unit-space columns
-# replaced the pre-v3.3 AZ gutter.
-_C_CHART_LABEL_NAME = _C_BB + 1   # BC — human-readable chart name (doc only)
-_C_CHART_TITLE = _C_BB + 2        # BD — Chart Title formula
-_C_CHART_XLABEL = _C_BB + 3       # BE — X-Axis Title formula
-_C_CHART_YLABEL = _C_BB + 4       # BF — Y-Axis Title formula
+# replaced the pre-v3.3 AZ gutter; v3.4 added the LOOCV Residual (Original
+# Units) column at BB, so the anchor moved one column right to BC (BC+14 = 69).
+_C_CHART_LABEL_NAME = _C_BC + 1   # BD — human-readable chart name (doc only)
+_C_CHART_TITLE = _C_BC + 2        # BE — Chart Title formula
+_C_CHART_XLABEL = _C_BC + 3       # BF — X-Axis Title formula
+_C_CHART_YLABEL = _C_BC + 4       # BG — Y-Axis Title formula
 _ROW_CHART_LABELS = 95     # first of 7 rows, one per chart in chart_specs order
 
 # ── §4b materialization zone ──────────────────────────────────────────────────
@@ -448,10 +466,10 @@ _ROW_CHART_LABELS = 95     # first of 7 rows, one per chart in chart_specs order
 # Gutters remain width-2 ungrouped separators — the first (after the charts) is
 # structural, keeping the floating chart anchors out of the collapsible group.
 #
-# The chart footprint needs an explicit bound. _C_BB is the chart ANCHOR, not
+# The chart footprint needs an explicit bound. _C_BC is the chart ANCHOR, not
 # its extent: the seven diagnostic charts are floating objects tiled in a
 # _CHART_GRID_COLS x _CHART_GRID_ROWS grid, whose right edge sits
-# _CHART_RIGHT_OFFSET_PT points past BB's left edge. _LAST_CHART_COLUMN is a
+# _CHART_RIGHT_OFFSET_PT points past BC's left edge. _LAST_CHART_COLUMN is a
 # conservative column index past which that footprint is clear, so the
 # full-height materialization spills are never drawn under a chart. A guarded
 # build-time assertion verifies the column past the footprint actually clears
@@ -466,9 +484,11 @@ _CHART_RIGHT_OFFSET_PT = (
 # chart right edge in _write_materialization_zone. Tracks the chart anchor, so
 # a zone shift moves it automatically instead of silently under-reserving.
 # v3.3: BA absorbed two Residual-Output content columns (Predicted Y /
-# Residual Original Units), so BB=54 + 14 = 68 keeps the same BP
-# column-letter end value the chart footprint was sized against.
-_LAST_CHART_COLUMN = _C_BB + 14   # BP
+# Residual Original Units), so the anchor + 14 = 68 kept the same BP
+# column-letter end value the chart footprint was sized against. v3.4 added
+# the LOOCV Residual (Original Units) column at BB, shifting the anchor to
+# BC=55, so BC + 14 = 69 (BQ).
+_LAST_CHART_COLUMN = _C_BC + 14   # BQ
 
 # Bounded materialization columns + their ungrouped gutters, then the terminal
 # Constructed Design Matrix, which runs unbounded to the sheet's right edge.
@@ -604,6 +624,47 @@ _BACK_TRANSFORM_NOTE = (
     "Duan the point estimate does not sit at the centre of its interval. "
     "That gap is correct, not a defect: the mean and the median of a "
     "skewed distribution are different numbers."
+)
+
+# Smearing Treatment — the v3.4 LOOCV sub-block names how the Duan smearing
+# factor was estimated, so the small optimism it introduces is on the sheet
+# rather than hidden. The hover Note carries the full explanation (the in-cell
+# text is kept short because column AH is 16 wide), following the sheet's
+# status-cell convention: short message in-cell, guidance on hover.
+_SMEARING_TREATMENT_NOTE = (
+    "Smearing Treatment — how the Duan smearing factor used by the LOOCV "
+    "residual was obtained.\n\n"
+    "n/a — the response is untransformed, so nothing is back-transformed "
+    "and no smearing factor is involved.\n"
+    "Naive (no smearing) — EXP(ŷ) only; the conditional median, no factor.\n"
+    "Full-sample Duan (approx.) — the smearing factor is the mean of "
+    "EXP(residuals) over the full included sample, the held-out row INCLUDED "
+    "in every leave-one-out residual. Each LOO residual is therefore back-"
+    "transformed with a factor estimated on data that row was part of. The "
+    "optimism is small but real: this cell names it rather than hiding it.\n\n"
+    "Fold-specific Duan — a smearing factor estimated on the n−1 in-sample "
+    "rows only, excluding the held-out row — is the exact form and removes "
+    "the leak. It is a future addition: a fourth SWITCH arm in "
+    "Smearing_Treatment plus a third item on the AH5 validation list, changed "
+    "in lockstep with Unit_Space_LOOCV_Residual's smearing call."
+)
+
+# SE Regression (Unit) — AG9. Relabelled from "RMSE (Unit)" in v3.4 so the
+# label stops promising ÷ n while the LOOCV RMSE row below genuinely delivers
+# it. The formula is unchanged: SQRT(SSE_unit / df_residual), the same divisor
+# SE_Regression uses, which is the v3.3 reduction invariant
+# (Unit_Space_RMSE ≡ SE_Regression under Transform = None). The divisor
+# question itself is filed as an OPEN TODO rather than changed here — see
+# docs/TODOs.md and docs/DECISIONS.md.
+_SE_REGRESSION_UNIT_NOTE = (
+    "SE Regression (Unit) — the standard error of the regression in response "
+    "units: SQRT(SSE_unit / df_residual), the SAME divisor SE_Regression uses "
+    "(not ÷ n, despite the old \"RMSE\" label). Under Transform = None this "
+    "equals SE_Regression exactly — the v3.3 reduction invariant. The label "
+    "changed in v3.4 to stop promising ÷ n; the LOOCV RMSE (Unit) row below "
+    "is the one that genuinely divides by n, because every leave-one-out "
+    "prediction is out-of-sample and costs no degrees of freedom. The divisor "
+    "question is filed as an OPEN TODO, not changed here."
 )
 
 _PREDICTION_INPUT_NOTE = (

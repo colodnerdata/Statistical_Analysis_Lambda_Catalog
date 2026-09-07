@@ -142,6 +142,7 @@ class RecordingRangeState:
     color: Any = None
     number_format: str | None = None
     column_width: float | None = None
+    wrap_text: bool | None = None
 
 
 class RecordingRangeApi:
@@ -172,6 +173,27 @@ class RecordingRangeApi:
 
     def AddComment(self, text: str) -> None:
         self.Comment = SimpleNamespace(Text=text, Visible=None)
+
+    # The writers set ``.api.WrapText`` directly (e.g. the v3.4 Smearing
+    # Treatment readout at AH14), so the mock must capture it on the state the
+    # per-cell test reads back, mirroring how ``number_format`` is proxied.
+    @property
+    def WrapText(self) -> bool | None:
+        return self._state.wrap_text
+
+    @WrapText.setter
+    def WrapText(self, value: bool | None) -> None:
+        self._state.wrap_text = value
+        # A block range and a per-cell ``cell()`` lookup are two different
+        # RecordingRange objects with two different states (see ``range()``),
+        # so propagate across the block exactly as ``number_format`` does —
+        # otherwise the per-cell assertion reads a state that was never set.
+        bounds = self._block_bounds()
+        if bounds is not None:
+            r1, c1, r2, c2 = bounds
+            for row in range(r1, r2 + 1):
+                for col in range(c1, c2 + 1):
+                    self._sheet.cell(row, col).state.wrap_text = value
 
     def ClearComments(self) -> None:
         self.Comment = None

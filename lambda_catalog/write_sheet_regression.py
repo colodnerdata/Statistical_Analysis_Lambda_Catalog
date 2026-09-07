@@ -233,6 +233,8 @@ from .regression_layout import (  # noqa: F401  — re-exported for importers
     _BACK_TRANSFORM_DEFAULT,
     _BACK_TRANSFORM_METHODS,
     _BACK_TRANSFORM_NOTE,
+    _SE_REGRESSION_UNIT_NOTE,
+    _SMEARING_TREATMENT_NOTE,
     _CHART_GAP,
     _CHART_GRID_COLS,
     _CHART_GRID_ROWS,
@@ -272,6 +274,7 @@ from .regression_layout import (  # noqa: F401  — re-exported for importers
     _C_AZ,
     _C_BA,
     _C_BB,
+    _C_BC,
     _C_CHART_LABEL_NAME,
     _C_CHART_TITLE,
     _C_CHART_XLABEL,
@@ -331,6 +334,9 @@ from .regression_layout import (  # noqa: F401  — re-exported for importers
     _ROW_COEFF_FIRST,
     _ROW_DATA_FIRST,
     _ROW_FE_GROUP,
+    _ROW_LOOCV_MAE_UNIT,
+    _ROW_LOOCV_RMSE_UNIT,
+    _ROW_LOOCV_SUBHEADING,
     _ROW_MEAN_LEVERAGE,
     _ROW_MODEL_CONTEXT_CHECK,
     _ROW_MODEL_FORMULA,
@@ -340,7 +346,12 @@ from .regression_layout import (  # noqa: F401  — re-exported for importers
     _ROW_QQ_CORRELATION,
     _ROW_RESPONSE_READOUT,
     _ROW_SIGNIFICANCE_F,
+    _ROW_SMEARING_TREATMENT,
     _ROW_STANDARD_ERROR,
+    _ROW_UNIT_ADJ_R2,
+    _ROW_UNIT_R2,
+    _ROW_UNIT_RMSE,
+    _ROW_UNIT_SMEARING,
     _SAMPLE_INCLUDE_HEADER,
     _SAMPLE_INCLUDE_MATERIALIZED_WIDTH,
     _WIDTH_COLUMNS,
@@ -455,7 +466,7 @@ def _annotate_statistical_terms(sheet: xw.Sheet, sheet_notes: dict[str, str]) ->
         (6, _C_AG, "Smearing Factor"),
         (7, _C_AG, "R Square (Unit)"),
         (8, _C_AG, "Adj R Square (Unit)"),
-        (9, _C_AG, "RMSE (Unit)"),
+        (9, _C_AG, "SE Regression (Unit)"),
         (10, _C_AG, "Response Space"),
         (4, _C_AJ, "Point Estimate"),
         (5, _C_AJ, "SE (Mean)"),
@@ -533,12 +544,14 @@ def _write_residual_conditional_formatting(sheet: xw.Sheet) -> None:
         "scale_location":     _band(_C_AW),
         "press_residual":     _band(_C_AX),
         "cooks_flag":         _band(_C_AY),
+        "loocv_unit_residual": _band(_C_BB),
     }
     # Relative per-row anchors for the banded rules (see the note on the
     # coefficient P-value rule above: no $, so the rule walks down the band).
     hat = f"{col_letter(_C_AR)}{_ROW_DATA_FIRST}"
     scale_location = f"{col_letter(_C_AW)}{_ROW_DATA_FIRST}"
     press_residual = f"{col_letter(_C_AX)}{_ROW_DATA_FIRST}"
+    loocv_unit_residual = f"{col_letter(_C_BB)}{_ROW_DATA_FIRST}"
 
     # Remove existing rules so repeated builds do not duplicate them.
     for address in addresses.values():
@@ -650,6 +663,30 @@ def _write_residual_conditional_formatting(sheet: xw.Sheet) -> None:
         addresses["press_residual"],
         f"=AND(ISNUMBER({press_residual}),"
         f"ABS({press_residual})>3*{_A_STANDARD_ERROR})",
+        fill=CF_LIGHT_RED_FILL,
+        font_color=CF_DARK_RED_TEXT,
+    )
+
+    # ── LOOCV Residual (Original Units): the v3.4 leave-one-out residual ────
+    # Scaled against the LOOCV RMSE (Unit) cell at $AH$12 (built from the row
+    # constant, never typed) — the out-of-sample counterpart of the PRESS
+    # rule above, which scales against the in-sample SE at $AB$7.
+    # |r_loo| > 2*LOOCV_RMSE: mild concern; > 3*LOOCV_RMSE: strong concern.
+    loocv_rmse_unit = _abs_ref(_ROW_LOOCV_RMSE_UNIT, _C_AH)
+    add_expression_format(
+        sheet,
+        addresses["loocv_unit_residual"],
+        f"=AND(ISNUMBER({loocv_unit_residual}),"
+        f"ABS({loocv_unit_residual})>2*{loocv_rmse_unit},"
+        f"ABS({loocv_unit_residual})<=3*{loocv_rmse_unit})",
+        fill=CF_YELLOW_FILL,
+        font_color=CF_DARK_YELLOW_TEXT,
+    )
+    add_expression_format(
+        sheet,
+        addresses["loocv_unit_residual"],
+        f"=AND(ISNUMBER({loocv_unit_residual}),"
+        f"ABS({loocv_unit_residual})>3*{loocv_rmse_unit})",
         fill=CF_LIGHT_RED_FILL,
         font_color=CF_DARK_RED_TEXT,
     )
@@ -998,6 +1035,13 @@ def _write_model_specification(sheet: xw.Sheet) -> None:
     # AddComment is COM-only, so keeping it out of _write_unit_space_block
     # keeps that writer headless-testable.
     _set_note(sheet, 5, _C_AG, _BACK_TRANSFORM_NOTE, label="Back-Transform")
+    # SE Regression (Unit) (AG9) and Smearing Treatment (AG14). v3.4 relabelled
+    # AG9 from "RMSE (Unit)" and added the LOOCV sub-block; both notes are
+    # attached here for the same reason the Back-Transform note is — AddComment
+    # is COM-only, so keeping them out of _write_unit_space_block keeps that
+    # writer headless-testable.
+    _set_note(sheet, 9, _C_AG, _SE_REGRESSION_UNIT_NOTE, label="SE Regression (Unit)")
+    _set_note(sheet, 14, _C_AG, _SMEARING_TREATMENT_NOTE, label="Smearing Treatment")
 
 
 _WIDTH_GUARD_NOTE = (
@@ -1445,27 +1489,35 @@ def _write_coefficients(sheet: xw.Sheet) -> None:
 
 
 def _write_unit_space_block(sheet: xw.Sheet) -> None:
-    """v3.3 unit-space / back-transformation block at AG4:AH10.
+    """v3.3 unit-space / back-transformation block at AG4:AH10, plus the v3.4
+    CROSS-VALIDATED FIT sub-block at AG11:AH14.
 
     Sits between the Coefficients spill (rows 20+) and the Prediction Outputs
     zone (AJ1+). Pair the catalog's `Unit_Space_*` LAMBDA functions with the
     Back-Transform Method input on row 5 (default "Duan") so the prediction
-    column (AL) and the residual-zone original-units columns (AZ, BA) can
+    column (AL) and the residual-zone original-units columns (AZ, BA, BB) can
     stitch onto a single source. Reads are gated by the response Transform
     string read off Fit_Context(); the Response Space readout on row 10 makes
-    the active state visible at a glance.
+    the active state visible at a glance. The v3.4 sub-block (rows 11–14)
+    leaves rows 4–10 and the Comparison_Headline_GoF range ($AH$7:$AH$9)
+    byte-identical, and names the smearing treatment so the full-sample Duan
+    optimism is on the sheet rather than hidden.
 
     Row layout:
 
-    | Row | AG                | AH                                         |
-    |-----|-------------------|--------------------------------------------|
-    | 4   | "UNIT-SPACE FIT"  | (section heading merged across AG4:AH4)    |
-    | 5   | "Back-Transform"  | input: "Duan" / "Naive" (default "Duan")   |
-    | 6   | "Smearing Factor" | =Smearing_Factor(Fit_Design_Columns(), ...)    |
-    | 7   | "R Square (Unit)" | =Unit_Space_R_Squared(...)                 |
-    | 8   | "Adj R Square (Unit)" | =Unit_Space_Adjusted_R_Squared(...)    |
-    | 9   | "RMSE (Unit)"     | =Unit_Space_RMSE(...)                      |
-    | 10  | "Response Space"  | readout (Fit_Context → "Log"/"None")       |
+    | Row | AG                     | AH                                         |
+    |-----|------------------------|--------------------------------------------|
+    | 4   | "UNIT-SPACE FIT"       | (section heading merged across AG4:AH4)    |
+    | 5   | "Back-Transform"       | input: "Duan" / "Naive" (default "Duan")   |
+    | 6   | "Smearing Factor"      | =Smearing_Factor(...)                      |
+    | 7   | "R Square (Unit)"      | =Unit_Space_R_Squared(...)                 |
+    | 8   | "Adj R Square (Unit)"  | =Unit_Space_Adjusted_R_Squared(...)        |
+    | 9   | "SE Regression (Unit)" | =Unit_Space_RMSE(...)                      |
+    | 10  | "Response Space"       | readout (Fit_Context → "Log"/"None")       |
+    | 11  | "CROSS-VALIDATED FIT"  | (section heading)                          |
+    | 12  | "LOOCV RMSE (Unit)"    | =Unit_Space_LOOCV_RMSE(...)                |
+    | 13  | "LOOCV MAE (Unit)"     | =Unit_Space_LOOCV_MAE(...)                 |
+    | 14  | "Smearing Treatment"   | =Smearing_Treatment(...) (WrapText)       |
     """
     section_heading(sheet, 4, _C_AG, "UNIT-SPACE FIT")
     val(sheet, 5, _C_AG, "Back-Transform")
@@ -1533,7 +1585,7 @@ def _write_unit_space_block(sheet: xw.Sheet) -> None:
         ),
         (
             9,
-            "RMSE (Unit)",
+            "SE Regression (Unit)",
             (
                 "=Unit_Space_RMSE(Fit_Design_Columns(),Design_Response(),"
                 "Response_Column(),Fit_Sample_Include(),Fit_Context(),"
@@ -1554,6 +1606,56 @@ def _write_unit_space_block(sheet: xw.Sheet) -> None:
         '"Original units (back-transformed)","Same as fit space")',
     )
     border_box(sheet, 4, _C_AG, 10, _C_AH)
+
+    # ── v3.4 CROSS-VALIDATED FIT sub-block (AG11:AH14) ─────────────────────
+    # Sits below the v3.3 block so rows 4–10 and the Comparison_Headline_GoF
+    # range ($AH$7:$AH$9) stay byte-identical. The two out-of-sample error
+    # scalars (LOOCV RMSE / MAE) are in original units, and the third row names
+    # how the smearing factor was obtained — full-sample Duan under the default
+    # toggle, so the small optimism it introduces is on the sheet rather than
+    # hidden. Both scalars take the same six-argument call the rows above use,
+    # with $AH$5 built from _A_BACK_TRANSFORM_METHOD, never spelled, plus the
+    # FE group column the LOOCV leverage correction needs (ignored when the
+    # model absorbs no fixed effects).
+    section_heading(sheet, _ROW_LOOCV_SUBHEADING, _C_AG, "CROSS-VALIDATED FIT")
+    for row, label, formula in [
+        (
+            _ROW_LOOCV_RMSE_UNIT,
+            "LOOCV RMSE (Unit)",
+            (
+                "=Unit_Space_LOOCV_RMSE(Fit_Design_Columns(),Design_Response(),"
+                "Response_Column(),Fit_Sample_Include(),Fit_Context(),"
+                f"{_A_BACK_TRANSFORM_METHOD},"
+                "Prediction_Group_Column())"
+            ),
+        ),
+        (
+            _ROW_LOOCV_MAE_UNIT,
+            "LOOCV MAE (Unit)",
+            (
+                "=Unit_Space_LOOCV_MAE(Fit_Design_Columns(),Design_Response(),"
+                "Response_Column(),Fit_Sample_Include(),Fit_Context(),"
+                f"{_A_BACK_TRANSFORM_METHOD},"
+                "Prediction_Group_Column())"
+            ),
+        ),
+    ]:
+        val(sheet, row, _C_AG, label)
+        f(sheet, row, _C_AH, formula)
+        sheet.range(rc(row, _C_AH), rc(row, _C_AH)).number_format = "0.0000"
+    val(sheet, _ROW_SMEARING_TREATMENT, _C_AG, "Smearing Treatment")
+    f(
+        sheet,
+        _ROW_SMEARING_TREATMENT,
+        _C_AH,
+        f"=Smearing_Treatment(Fit_Context(),{_A_BACK_TRANSFORM_METHOD})",
+    )
+    sheet.range(
+        rc(_ROW_SMEARING_TREATMENT, _C_AH), rc(_ROW_SMEARING_TREATMENT, _C_AH)
+    ).api.WrapText = True
+    border_box(
+        sheet, _ROW_LOOCV_SUBHEADING, _C_AG, _ROW_SMEARING_TREATMENT, _C_AH
+    )
 
 
 def _write_prediction_interval(sheet: xw.Sheet) -> None:
@@ -1887,7 +1989,12 @@ def _write_residuals(sheet: xw.Sheet) -> None:
     # conditional suffix logic above does not apply to them.
     val(sheet, 3, _C_AZ, "Predicted Y (Original Units)")
     val(sheet, 3, _C_BA, "Residual (Original Units)")
-    bold_row(sheet, 3, _C_AN, _C_BA)
+    # v3.4: BB is the leave-one-out sibling of BA — the residual against a
+    # prediction made WITHOUT the row, in original units. In-sample (BA) vs
+    # out-of-sample (BB) side by side is the whole point: the gap between
+    # them is the model's optimism, at row level.
+    val(sheet, 3, _C_BB, "LOOCV Residual (Original Units)")
+    bold_row(sheet, 3, _C_AN, _C_BB)
 
     # AN4: row labels — the spec-derived Row_Labels() filtered to the sample.
     # Row_Labels() has its own no-Identifier fallback ("Obs. n"), so the only
@@ -1958,10 +2065,25 @@ def _write_residuals(sheet: xw.Sheet) -> None:
             f"{_A_BACK_TRANSFORM_METHOD})"
         ),
     )
+    # BB: leave-one-out residual in original units — the observed response in
+    # original units minus the unit-space LOOCV prediction (the same
+    # Prediction_Group_Column() argument the FE leverage correction needs,
+    # ignored by the function when no fixed effects are absorbed). The
+    # PRESS-residual fit-space analogue sits at AX; this is its original-
+    # units counterpart, so an out-of-sample row is readable next to the
+    # in-space diagnostic columns it belongs with.
+    f(
+        sheet, 4, _C_BB,
+        (
+            "=Unit_Space_LOOCV_Residual(Fit_Design_Columns(),Design_Response(),"
+            "Response_Column(),Fit_Sample_Include(),Fit_Context(),"
+            f"{_A_BACK_TRANSFORM_METHOD},Prediction_Group_Column())"
+        ),
+    )
     # Format every numeric residual-output column — the actual Y (AO) through
-    # Residual (Original Units) (BA). Only the AN identifier column (text:
-    # country/Obs. labels) is left unformatted.
-    sheet.range(f"{col_letter(_C_AO)}:{col_letter(_C_BA)}").number_format = "0.0000"
+    # LOOCV Residual (Original Units) (BB). Only the AN identifier column
+    # (text: country/Obs. labels) is left unformatted.
+    sheet.range(f"{col_letter(_C_AO)}:{col_letter(_C_BB)}").number_format = "0.0000"
 
 
 # ── Public entry point ────────────────────────────────────────────────────────
@@ -2083,7 +2205,7 @@ def write_regression_output_sheet(
     _annotate_statistical_terms(sheet, sheet_notes or {})
     _write_residual_conditional_formatting(sheet)
 
-    sheet.range(rc(3, _C_S), rc(3, _C_BA)).api.WrapText = True
+    sheet.range(rc(3, _C_S), rc(3, _C_BB)).api.WrapText = True
 
     # A–O (spec block) widths are owned by write_spec_block.py
     # so the standalone and shared-block builds can never drift.

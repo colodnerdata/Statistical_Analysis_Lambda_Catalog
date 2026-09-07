@@ -473,10 +473,20 @@ def test_row_constants_match_the_writers_own_layout() -> None:
 
     unit_space = _labels(_write_unit_space_block, _C_AG)
     assert unit_space[io.ROW_BACK_TRANSFORM] == "Back-Transform"
-    assert unit_space[6] == "Smearing Factor"
-    assert unit_space[7] == "R Square (Unit)"
-    assert unit_space[8] == "Adj R Square (Unit)"
-    assert unit_space[9] == "RMSE (Unit)"
+    assert unit_space[io._ROW_UNIT_SMEARING] == "Smearing Factor"
+    assert unit_space[io._ROW_UNIT_R2] == "R Square (Unit)"
+    assert unit_space[io._ROW_UNIT_ADJ_R2] == "Adj R Square (Unit)"
+    # v3.4 relabelled AG9 from "RMSE (Unit)" to "SE Regression (Unit)": the
+    # formula is ÷ df_residual (a standard error of the regression in unit
+    # space), so the label stops promising ÷ n while the LOOCV pair below
+    # genuinely delivers it. See the plan's "Flagged, not changed" section.
+    assert unit_space[io._ROW_UNIT_RMSE] == "SE Regression (Unit)"
+    # v3.4 CROSS-VALIDATED FIT sub-block: the out-of-sample pair the toggle's
+    # smearing optimism actually touches, plus the named treatment at AH14.
+    assert unit_space[io._ROW_LOOCV_SUBHEADING] == "CROSS-VALIDATED FIT"
+    assert unit_space[io._ROW_LOOCV_RMSE_UNIT] == "LOOCV RMSE (Unit)"
+    assert unit_space[io._ROW_LOOCV_MAE_UNIT] == "LOOCV MAE (Unit)"
+    assert unit_space[io._ROW_SMEARING_TREATMENT] == "Smearing Treatment"
 
     interval = _labels(_write_prediction_interval, _C_AJ)
     assert interval[io.ROW_PI_POINT] == "Point Estimate"

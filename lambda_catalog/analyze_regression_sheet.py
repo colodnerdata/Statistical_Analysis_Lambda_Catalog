@@ -662,6 +662,96 @@ def calculate_regression_results_from_matrix(
         )
     residuals_unit = y_unit - predictions_unit
 
+    # ── v3.4 unit-space LOOCV: the leave-one-out residual in original units ──
+    # Mirror Unit_Space_LOOCV_Residual: Unit_Space_Observed (y_unit, never
+    # smeared) minus the back-transform of the LOO fitted value. The LOO fitted
+    # value is the fit-space LOOCV prediction (already computed above as
+    # loocv_predictions = predictions - h*e/(1-h)) plus the SAME level shift
+    # Unit_Space_Predictions adds, then back-transformed through the SAME
+    # Duan/Naive branch selected for predictions_unit. The smearing factor is
+    # the full-sample Smearing_Factor (estimated on all n residuals, the
+    # held-out row included) — the small optimism Smearing_Treatment names.
+    # A leverage-1 row (h_i = 1) makes loocv_predictions divide by zero; the
+    # LAMBDA wraps that in IFERROR(…, NA()), and none of the fittable test
+    # cases has such a row (the existing fit-space PRESS has the same
+    # 1/(1-h) and is finite on every case), so the NumPy mirror is left
+    # unguarded to match the existing `press` computation's own discipline.
+    # FIXED EFFECTS: the fit-space LOO prediction above is NOT a genuine
+    # leave-one-out under FE, and using it here understates the error. Its hat
+    # diagonal comes from the design the model was fitted on — the
+    # within-demeaned predictors plus ONE overall intercept — so it omits the
+    # absorbed group effects entirely and never re-estimates the held-out
+    # row's own group mean.
+    #
+    # The equivalent full LSDV design (predictors + one dummy per non-reference
+    # group) has a hat diagonal that decomposes exactly, because the within
+    # projection and the group-mean projection are orthogonal:
+    #
+    #     h_lsdv(i) = h_within(i) + 1 / n_g(i)
+    #
+    # and the shipped ``h`` is already ``h_within + 1/n`` (that single overall
+    # intercept), so the correction is a subtraction and an addition, with no
+    # G-column dummy matrix to materialize:
+    #
+    #     h_lsdv = h - 1/n + 1/n_g
+    #
+    # The fitted values and residuals need no correction: the LSDV fit equals
+    # the within fit plus the group mean, and the response shifts by the same
+    # group mean, so ``predictions + level_shift`` IS the LSDV fitted value and
+    # ``e`` IS the LSDV residual. Verified against explicit n-fold LSDV refits
+    # to 7e-14 on production_lots_fixed_effects and production_lots_log_transform
+    # (``tests/test_regression_spec_qc.py``).
+    #
+    # The fit-space PRESS Residual column is deliberately left alone: it is the
+    # shipped v1.2 statistic and reports the within model's own leave-one-out
+    # residual, which is a different quantity from this one.
+    if group_labels is not None and df_absorbed > 0:
+        group_sizes = np.array(
+            [int(np.count_nonzero(group_labels == label)) for label in group_labels],
+            dtype=float,
+        )
+        h_lsdv = h - 1.0 / n + 1.0 / group_sizes
+        loocv_fit = predictions - h_lsdv * e / (1.0 - h_lsdv)
+    else:
+        loocv_fit = loocv_predictions
+    loo_fit_space = loocv_fit + level_shift
+    if response_transform == "Log":
+        loocv_duan = np.exp(loo_fit_space) * smearing_factor
+        loocv_naive = np.exp(loo_fit_space)
+    elif response_transform == "None":
+        loocv_duan = loo_fit_space.copy()
+        loocv_naive = loo_fit_space.copy()
+    else:
+        loocv_duan = np.full(n, float("nan"))
+        loocv_naive = np.full(n, float("nan"))
+    # back_transform is already validated above (the else raised), so select
+    # without re-raising — but keep the explicit branches so an unrecognised
+    # method is never silently defaulted to Duan.
+    if back_transform == "Duan":
+        loocv_predictions_unit = loocv_duan
+    else:  # back_transform == "Naive" (the only other survivor)
+        loocv_predictions_unit = loocv_naive
+    loocv_residuals_unit = y_unit - loocv_predictions_unit
+    # Divisor n, not df_residual: every LOO prediction is genuinely
+    # out-of-sample, so no degrees of freedom are consumed. MAE averages over
+    # the same n. Reduction invariant: under Transform = None / no FE,
+    # loocv_residuals_unit ≡ loocv_residuals (the PRESS Residual column) and
+    # loocv_rmse_unit ≡ sqrt(PRESS / n).
+    loocv_rmse_unit = sqrt(float(np.sum(loocv_residuals_unit ** 2)) / n)
+    loocv_mae_unit = float(np.mean(np.abs(loocv_residuals_unit)))
+    # Smearing treatment: the three-way rule mirrored from the
+    # Smearing_Treatment LAMBDA. An unrecognised response_transform falls
+    # through to #N/A in the LAMBDA; here it is nan-bearing, but the fittable
+    # cases only ever carry "None" or "Log".
+    if response_transform == "None":
+        smearing_treatment = "n/a — no back-transform"
+    elif response_transform == "Log" and back_transform == "Naive":
+        smearing_treatment = "Naive (no smearing)"
+    elif response_transform == "Log" and back_transform == "Duan":
+        smearing_treatment = "Full-sample Duan (approx.)"
+    else:
+        smearing_treatment = float("nan")
+
     # SST_unit: centered when the model has an intercept, uncentered when
     # forced through the origin — same convention SS_Total uses.
     if include_intercept:
@@ -734,6 +824,10 @@ def calculate_regression_results_from_matrix(
         prediction_pi_upper_unit=prediction_pi_upper_unit,
         predictions_unit=tuple(float(v) for v in predictions_unit),
         residuals_unit=tuple(float(v) for v in residuals_unit),
+        loocv_residuals_unit=tuple(float(v) for v in loocv_residuals_unit),
+        loocv_rmse_unit=loocv_rmse_unit,
+        loocv_mae_unit=loocv_mae_unit,
+        smearing_treatment=smearing_treatment,
         model_formula=model_formula,
     )
 

@@ -159,9 +159,7 @@ def test_build_preserves_original_write_error_when_cleanup_fails(
     )
     for writer_name in [
         "write_catalog_sheet",
-        "write_regression_instructions_sheet",
-        "write_modeling_concepts_sheet",
-        "write_diagnostic_guide_sheet",
+        "copy_static_sheets",
         "write_version_history_sheet",
     ]:
         monkeypatch.setattr(build_production, writer_name, lambda *_, **__: None)

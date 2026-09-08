@@ -6,6 +6,7 @@ from typing import Any, cast
 
 from lambda_catalog.workbook_helpers import (
     copy_static_sheet,
+    copy_static_sheets,
     f,
     safe_activate,
     safe_freeze_top_row,
@@ -142,7 +143,15 @@ class _Books:
     def open(self, path: str, **kwargs):
         self.opens.append({"path": path, **kwargs})
         book = SimpleNamespace(
-            fullname=path, sheets=_Sheets(["Diagnostic Guide"]), closed=False
+            fullname=path,
+            sheets=_Sheets(
+                [
+                    "Regression Instructions",
+                    "Modeling Concepts",
+                    "Diagnostic Guide",
+                ]
+            ),
+            closed=False,
         )
         book.close = lambda: setattr(book, "closed", True)
         return book
@@ -151,7 +160,14 @@ class _Books:
 def _target_workbook(books: _Books) -> SimpleNamespace:
     return SimpleNamespace(
         app=SimpleNamespace(books=books),
-        sheets=_Sheets(["Regression", "Diagnostic Guide"]),
+        sheets=_Sheets(
+            [
+                "Regression",
+                "Regression Instructions",
+                "Modeling Concepts",
+                "Diagnostic Guide",
+            ]
+        ),
     )
 
 
@@ -213,6 +229,31 @@ def test_copy_static_sheet_opens_the_template_read_only(tmp_path: Path) -> None:
 
     assert len(books.opens) == 1
     assert books.opens[0]["read_only"] is True
+
+
+def test_copy_static_sheets_opens_and_closes_template_once(
+    tmp_path: Path,
+) -> None:
+    template = tmp_path / "static_sheets.xlsx"
+    template.write_bytes(b"")
+    books = _Books(already_open=[])
+
+    copied = copy_static_sheets(
+        _target_workbook(books),
+        template,
+        (
+            "Regression Instructions",
+            "Modeling Concepts",
+            "Diagnostic Guide",
+        ),
+    )
+
+    assert len(books.opens) == 1
+    assert [sheet.name for sheet in copied] == [
+        "Regression Instructions",
+        "Modeling Concepts",
+        "Diagnostic Guide",
+    ]
 
 
 def test_copy_static_sheet_reuses_and_leaves_open_a_template_it_did_not_open(

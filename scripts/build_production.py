@@ -49,6 +49,7 @@ from lambda_catalog.workbook_builder import (
 )
 from lambda_catalog.workbook_helpers import (
     OPEN_WORKBOOK_ERRORS,
+    copy_static_sheets,
     raise_excel_access_error,
 )
 from lambda_catalog.write_sheet_csv_dataset import (
@@ -58,16 +59,9 @@ from lambda_catalog.write_sheet_csv_dataset import (
     load_csv_rows,
     write_csv_dataset_sheet,
 )
-from lambda_catalog.write_sheet_diagnostic_guide import write_diagnostic_guide_sheet
 from lambda_catalog.write_sheet_lambda_functions import write_catalog_sheet
-from lambda_catalog.write_sheet_modeling_concepts import (
-    write_modeling_concepts_sheet,
-)
 from lambda_catalog.write_spec_block import SPEC_DATASET_PROFILES
 from lambda_catalog.write_sheet_regression import write_regression_output_sheet
-from lambda_catalog.write_sheet_regression_instructions import (
-    write_regression_instructions_sheet,
-)
 from lambda_catalog.write_sheet_univariate import (
     UNIVARIATE_SHEET_NAME,
     write_univariate_sheet,
@@ -77,6 +71,7 @@ from lambda_catalog.write_sheet_version_history import write_version_history_she
 ROOT_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_WORKBOOK_PATH = ROOT_DIR / "dist" / "Lambda_Library.xlsx"
 DEFAULT_DEFINITIONS_PATH = ROOT_DIR / "lambda_functions.json"
+STATIC_SHEETS_PATH = ROOT_DIR / "templates" / "static_sheets.xlsx"
 _TAB_COLOR_LIGHT_GRAY = (217, 217, 217)
 _TAB_COLOR_DARK_GRAY = (128, 128, 128)
 
@@ -374,9 +369,15 @@ def build_production_workbook(
             write_csv_dataset_sheet(
                 workbook, production_lots_headers, production_lots_rows, PRODUCTION_LOTS
             )
-            write_regression_instructions_sheet(workbook)
-            write_modeling_concepts_sheet(workbook)
-            write_diagnostic_guide_sheet(workbook)
+            copy_static_sheets(
+                workbook,
+                STATIC_SHEETS_PATH,
+                (
+                    _SHEET_NAME_REGRESSION_INSTRUCTIONS,
+                    _SHEET_NAME_MODELING_CONCEPTS,
+                    _SHEET_NAME_DIAGNOSTIC_GUIDE,
+                ),
+            )
             write_version_history_sheet(workbook)
             write_regression_output_sheet(
                 workbook,

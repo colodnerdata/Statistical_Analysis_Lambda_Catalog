@@ -386,9 +386,7 @@ def _stub_regression_build_writers(monkeypatch, writer_calls: list[str]) -> None
     )
     for writer_name in [
         "write_catalog_sheet",
-        "write_regression_instructions_sheet",
-        "write_modeling_concepts_sheet",
-        "write_diagnostic_guide_sheet",
+        "copy_static_sheets",
         "write_version_history_sheet",
         "write_regression_output_sheet",
         "write_univariate_sheet",
@@ -413,6 +411,14 @@ def test_build_writes_univariate_sheet(monkeypatch, tmp_path) -> None:
 
     writer_calls: list[str] = []
     _stub_regression_build_writers(monkeypatch, writer_calls)
+    static_batches: list[tuple[Path, tuple[str, ...]]] = []
+    monkeypatch.setattr(
+        build_production,
+        "copy_static_sheets",
+        lambda _workbook, path, names: static_batches.append(
+            (path, tuple(names))
+        ),
+    )
 
     build_production.build_production_workbook(
         workbook_path=tmp_path / "Example.xlsx",
@@ -424,6 +430,16 @@ def test_build_writes_univariate_sheet(monkeypatch, tmp_path) -> None:
     assert "write_univariate_sheet" in writer_calls
     assert "write_regression_output_sheet" in writer_calls
     assert "write_csv_dataset_sheet" in writer_calls
+    assert static_batches == [
+        (
+            build_production.STATIC_SHEETS_PATH,
+            (
+                "Regression Instructions",
+                "Modeling Concepts",
+                "Diagnostic Guide",
+            ),
+        )
+    ]
     assert app.book.saved_paths == [str(tmp_path / "Example.xlsx")]
 
 
@@ -899,15 +915,7 @@ def test_build_uses_life_expectancy_source_table_when_requested(
     monkeypatch.setattr(
         build_production, "write_csv_dataset_sheet", lambda *_, **__: None
     )
-    monkeypatch.setattr(
-        build_production, "write_regression_instructions_sheet", lambda *_, **__: None
-    )
-    monkeypatch.setattr(
-        build_production, "write_modeling_concepts_sheet", lambda *_, **__: None
-    )
-    monkeypatch.setattr(
-        build_production, "write_diagnostic_guide_sheet", lambda *_, **__: None
-    )
+    monkeypatch.setattr(build_production, "copy_static_sheets", lambda *_, **__: None)
     monkeypatch.setattr(
         build_production, "write_version_history_sheet", lambda *_, **__: None
     )
@@ -964,9 +972,7 @@ def test_build_defaults_to_life_expectancy_source_table(monkeypatch, tmp_path) -
     )
     for name in [
         "write_catalog_sheet",
-        "write_regression_instructions_sheet",
-        "write_modeling_concepts_sheet",
-        "write_diagnostic_guide_sheet",
+        "copy_static_sheets",
         "write_version_history_sheet",
         "write_univariate_sheet",
     ]:

@@ -136,6 +136,7 @@ class _Books:
     def __init__(self, already_open: list[object]) -> None:
         self._open = already_open
         self.opens: list[dict] = []
+        self.opened_books: list[object] = []
 
     def __iter__(self):
         return iter(self._open)
@@ -154,6 +155,7 @@ class _Books:
             closed=False,
         )
         book.close = lambda: setattr(book, "closed", True)
+        self.opened_books.append(book)
         return book
 
 
@@ -249,6 +251,8 @@ def test_copy_static_sheets_opens_and_closes_template_once(
     )
 
     assert len(books.opens) == 1
+    assert len(books.opened_books) == 1
+    assert books.opened_books[0].closed is True
     assert [sheet.name for sheet in copied] == [
         "Regression Instructions",
         "Modeling Concepts",
@@ -270,6 +274,39 @@ def test_copy_static_sheet_reuses_and_leaves_open_a_template_it_did_not_open(
     books = _Books(already_open=[already])
 
     copy_static_sheet(_target_workbook(books), template, "Diagnostic Guide")
+
+    assert books.opens == []
+    assert already.closed is False
+
+
+def test_copy_static_sheets_reuses_and_leaves_open_an_existing_template(
+    tmp_path: Path,
+) -> None:
+    template = tmp_path / "static_sheets.xlsx"
+    template.write_bytes(b"")
+    already = SimpleNamespace(
+        fullname=str(template),
+        sheets=_Sheets(
+            [
+                "Regression Instructions",
+                "Modeling Concepts",
+                "Diagnostic Guide",
+            ]
+        ),
+        closed=False,
+    )
+    already.close = lambda: setattr(already, "closed", True)
+    books = _Books(already_open=[already])
+
+    copy_static_sheets(
+        _target_workbook(books),
+        template,
+        (
+            "Regression Instructions",
+            "Modeling Concepts",
+            "Diagnostic Guide",
+        ),
+    )
 
     assert books.opens == []
     assert already.closed is False

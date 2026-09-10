@@ -245,7 +245,9 @@ def _write_template_sheet(workbook: xw.Book) -> None:
         "the Adjusted R², the mean leverage, the Cook's Distance cutoff and the PRESS total — so "
         "a chart can be read without scrolling back to its source cell."
     )
-    sheet.range((r, 1)).api.WrapText = True
+    intro = sheet.range((r, 1), (r, _LAST_COL))
+    intro.api.WrapText = True
+    intro.api.HorizontalAlignment = 7  # xlHAlignCenterAcrossSelection
     r += 2
 
     # ── Tier 1: Core diagnostic plots ─────────────────────────────────────────
@@ -340,6 +342,17 @@ def _write_template_sheet(workbook: xw.Book) -> None:
         _row(sheet, r, vals); r += 1
 
     sheet.autofit("rows")
+
+    # Keep the title, centered introduction, and spacer visible while scrolling.
+    try:
+        window = workbook.app.api.ActiveWindow
+        window.FreezePanes = False
+        window.Split = False
+        sheet.activate()
+        sheet.range("A5").select()
+        window.FreezePanes = True
+    except Exception:
+        pass
 
 
 def write_diagnostic_guide_sheet(workbook: xw.Book) -> None:

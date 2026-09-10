@@ -20,7 +20,7 @@ The active Filter columns are combined with AND: a row is included only when eve
 
 **Use Case**
 
-Add one filter for the target population and additional candidate filters for common subsets. Switch each column's Role between Filter and Exclude to generate related models quickly. For point-removal sensitivity analysis, add a column that is TRUE for every row except the observation being tested; activating it refits the model without that point while leaving the source data intact.
+Add one filter for the target population and additional candidate filters for common subsets. Switch each column's Role between Filter and Omit to generate related models quickly. For point-removal sensitivity analysis, add a column that is TRUE for every row except the observation being tested; activating it refits the model without that point while leaving the source data intact.
 
 ### Intercept Control (C2 toggle)
 

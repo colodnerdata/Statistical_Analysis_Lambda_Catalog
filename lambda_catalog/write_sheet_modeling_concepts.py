@@ -61,7 +61,7 @@ _FEATURES: list[list[str]] = [
         "a blank category is simply not a level. Log (drop ≤ 0) adds its own exclusion layer, "
         "and excluded-row counts surface in the status cells above the spec (B2 / G2).",
         "Add one filter for the target population and additional candidate filters for common "
-        "subsets. Switch each column's Role between Filter and Exclude to generate related models "
+        "subsets. Switch each column's Role between Filter and Omit to generate related models "
         "quickly. For point-removal sensitivity analysis, add a column that is TRUE for every row "
         "except the observation being tested; activating it refits the model without that point "
         "while leaving the source data intact.",

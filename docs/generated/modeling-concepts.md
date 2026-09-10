@@ -8,6 +8,20 @@ from the authored lists in
 
 ## Shipped features
 
+### Sample Filtering & Completeness (Role = Filter)
+
+**What Problem It Solves**
+
+Add TRUE/FALSE filter columns to the source dataset to define the population for a model without deleting or rearranging observations. Keeping alternative filters as separate columns makes it quick to fit related model specifications and to test how sensitive the results are to removing individual observations.
+
+**Statistical Method**
+
+The active Filter columns are combined with AND: a row is included only when every Filter is TRUE. The Response and every included Continuous predictor must also be numeric (listwise deletion). Categorical predictors impose no completeness condition — a blank category is simply not a level. Log (drop ≤ 0) adds its own exclusion layer, and excluded-row counts surface in the status cells above the spec (B2 / G2).
+
+**Use Case**
+
+Add one filter for the target population and additional candidate filters for common subsets. Switch each column's Role between Filter and Omit to generate related models quickly. For point-removal sensitivity analysis, add a column that is TRUE for every row except the observation being tested; activating it refits the model without that point while leaving the source data intact.
+
 ### Intercept Control (C2 toggle)
 
 **What Problem It Solves**
@@ -49,20 +63,6 @@ Only variables marked Log are transformed. Logging a predictor alone leaves the 
 **Use Case**
 
 In a log-log model without interactions, a coefficient gives the proportional change in the fitted geometric mean of the response for a proportional change in that predictor, holding other predictors fixed. For small changes, a 1% predictor increase corresponds to approximately that coefficient percent change in the fitted response. Inspect residual plots after transformation.
-
-### Sample Filtering & Completeness (Role = Filter)
-
-**What Problem It Solves**
-
-The fit should answer a question about a specific population, and rows with missing values cannot be part of it. The workbook derives the analysis sample from the spec, so a change of population is a specification change — not hand-deleting rows on the data sheet.
-
-**Statistical Method**
-
-A per-row mask ANDed together: every Filter column must be TRUE, the Response must be numeric, and every included Continuous predictor must be numeric (listwise deletion). Categorical predictors impose no completeness condition — a blank category is just not a level. Log (drop ≤ 0) adds its own exclusion layer, and the excluded-row counts surface in the status cells above the spec (B2 / G2) rather than staying silent.
-
-**Use Case**
-
-Restrict a nationwide demand model to one market segment: add a derived column that is TRUE only for that segment, set its Role to Filter, and every statistic is refit to that population. Retarget the filter later and the sample follows — the data sheet is never touched.
 
 ### Interactions (Interaction Term / Operation, M/N)
 

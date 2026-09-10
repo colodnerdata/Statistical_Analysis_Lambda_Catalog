@@ -38,7 +38,7 @@ single ungrouped GAP column so the zones collapse independently; see the
                    point/CI/PI rows 4-12, FE Group selector + ybar_i/T_i
                    readouts rows 13-15), Prediction Inputs (AJ17+, one row
                    per constructed column, no Intercept row), Training Mean
-                   spill (AL20 — the single Predictor_Columns() evaluation
+                   spill (AL23 — the single Predictor_Columns() evaluation
                    the orange AK prefills INDEX into; owns column AL downward
                    so it can never collide with another spill)
   Col AM         — thin gap (width 2, ungrouped)
@@ -1725,26 +1725,26 @@ def _write_prediction_interval(sheet: xw.Sheet) -> None:
 
 
 def _write_prediction_inputs(sheet: xw.Sheet) -> None:
-    """Zone AJ16+: one prediction-input row per constructed column.
+    """Zone AJ19+: one prediction-input row per constructed column.
 
     No Intercept row here: Group_Prediction_Interval's pred_input is exactly
     COLUMNS(Predictor_Columns()) raw predictor values with no intercept slot
     — group-mean recovery never uses one (the selected group's own mean plays
-    that role) — so an intercept row would be actively misleading. Row 19 is
+    that role) — so an intercept row would be actively misleading. Row 22 is
     a blank spacer between the headers and the first predictor row.
     """
-    section_heading(sheet, 17, _C_AJ, "PREDICTION INPUTS")
-    val(sheet, 18, _C_AJ, "Predictor")
-    val(sheet, 18, _C_AK, "Prediction Value")
-    bold_row(sheet, 18, _C_AJ, _C_AL)
+    section_heading(sheet, 20, _C_AJ, "PREDICTION INPUTS")
+    val(sheet, 21, _C_AJ, "Predictor")
+    val(sheet, 21, _C_AK, "Prediction Value")
+    bold_row(sheet, 21, _C_AJ, _C_AL)
     # The band's header note lives in _write_model_specification alongside
     # every other note: AddComment is a COM-only call, and keeping it out of
     # here is what lets this writer stay exercisable through RecordingSheet.
 
-    # AJ20: spill formula — level-qualified names, one per constructed column
+    # AJ23: spill formula — level-qualified names, one per constructed column
     f(sheet, _PRED_INPUT_FIRST_ROW, _C_AJ, "=TRANSPOSE(Constructed_Column_Names())")
 
-    # AL20: the Training Mean column — per-column means of the filtered design
+    # AL23: the Training Mean column — per-column means of the filtered design
     # matrix, computed with a SINGLE Predictor_Columns() evaluation. Predictor_Columns() is
     # a full
     # design-matrix construction on every call (Excel does not cache LAMBDA
@@ -1759,7 +1759,7 @@ def _write_prediction_inputs(sheet: xw.Sheet) -> None:
     # one-row spill holding a blank.
     #
     # Log columns need the GEOMETRIC mean here, not the arithmetic mean of
-    # the already-logged Predictor_Columns() column: the AH prefill cells below just
+    # the already-logged Predictor_Columns() column: the AK prefill cells below just
     # INDEX into this spill, and the row-4 prediction formula applies
     # Ln_Positive to whatever it finds in AK — so if this spill held the
     # log-space arithmetic mean, the default prediction would silently
@@ -1770,7 +1770,7 @@ def _write_prediction_inputs(sheet: xw.Sheet) -> None:
     # Constructed_Column_Transforms() gives the per-column Log/None flag in
     # the same 1xk shape as the BYCOL means row, so the two combine
     # elementwise before the single TRANSPOSE down into the AL column.
-    val(sheet, 18, _C_AL, "Training Mean")
+    val(sheet, 21, _C_AL, "Training Mean")
     means_anchor = _abs_ref(_PRED_INPUT_FIRST_ROW, _C_AL)
     f(
         sheet,
@@ -1783,7 +1783,7 @@ def _write_prediction_inputs(sheet: xw.Sheet) -> None:
         ),
     )
 
-    # AK20:AK63 — the Training Mean of each constructed column, individually
+    # AK23:AK66 — the Training Mean of each constructed column, individually
     # overridable. Each row guards on its position against the means-spill
     # height so rows beyond the live constructed width render blank (the
     # width is spec-dependent — 19 on the default WHO spec). Cheap spill
@@ -1801,9 +1801,19 @@ def _write_prediction_inputs(sheet: xw.Sheet) -> None:
             ),
         )
 
-    # Orange for all user-editable prediction value cells (the Training Mean
-    # column is computed display, not input)
-    _input_range(sheet, _PRED_INPUT_FIRST_ROW, _C_AK, _PRED_INPUT_LAST_ROW, _C_AK)
+    # As in the Model Specification block, conditional formatting marks only
+    # the live part of this fixed-height input band.  Keying on the predictor-name
+    # spill keeps unused formula rows white while a spec change immediately paints
+    # each row that now corresponds to an actual constructed model predictor.
+    add_expression_format(
+        sheet,
+        (
+            f"${col_letter(_C_AK)}${_PRED_INPUT_FIRST_ROW}:"
+            f"${col_letter(_C_AK)}${_PRED_INPUT_LAST_ROW}"
+        ),
+        f"=${col_letter(_C_AJ)}{_PRED_INPUT_FIRST_ROW}<>\"\"",
+        fill=_INPUT,
+    )
     sheet.range(
         rc(_PRED_INPUT_FIRST_ROW, _C_AK), rc(_PRED_INPUT_LAST_ROW, _C_AK)
     ).number_format = "0.0000"

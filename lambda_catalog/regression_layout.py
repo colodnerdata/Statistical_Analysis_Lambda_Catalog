@@ -118,7 +118,7 @@ _C_AI = 35  # thin gap (ungrouped)
 # Zone 4: Prediction Outputs
 _C_AJ = 36  # prediction interval labels / prediction input labels
 _C_AK = 37  # prediction interval values / prediction input values
-_C_AL = 38  # Training Mean — the per-constructed-column means spill (AL19).
+_C_AL = 38  # Training Mean — the per-constructed-column means spill (AL23).
             # The spill owns column AL downward, so it can never collide with
             # another spill when the source data or spec changes.
 
@@ -148,9 +148,9 @@ _C_BB = 54  # chart anchor — formerly _C_AZ; everything past it shifts right b
 
 # The constructed-column count is spec-dependent (19 on the default WHO spec),
 # so bands that v1 sized with the fixed k=18 now cover a generous fixed range.
-_PRED_INPUT_FIRST_ROW = 20
-_PRED_INPUT_LAST_ROW = 63
-_FORMAT_BAND_LAST_ROW = 63
+_PRED_INPUT_FIRST_ROW = 23
+_PRED_INPUT_LAST_ROW = 66
+_FORMAT_BAND_LAST_ROW = 66
 
 # ── Cell anchors referenced from formulas ─────────────────────────────────────
 # Conditional-format expressions, chart titles, and OFFSET-based named ranges

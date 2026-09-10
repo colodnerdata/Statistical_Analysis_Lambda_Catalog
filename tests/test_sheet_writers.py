@@ -985,13 +985,17 @@ def test_prediction_prefills_index_the_single_training_mean_spill() -> None:
 
     _write_prediction_inputs(_as_xw_sheet(sheet))
 
+    assert sheet.cell(20, _C_AJ).value == "PREDICTION INPUTS"
+    assert sheet.cell(21, _C_AJ).value == "Predictor"
+    assert sheet.cell(21, _C_AK).value == "Prediction Value"
+
     # The Training Mean spill is the ONE Predictor_Columns() evaluation for the whole
-    # prefill band; it owns column AI downward so it can never collide with
+    # prefill band; it owns column AL downward so it can never collide with
     # another spill when the source data or spec changes.
-    assert sheet.cell(18, _C_AL).value == "Training Mean"
+    assert sheet.cell(21, _C_AL).value == "Training Mean"
     means = _formula(sheet, _PRED_INPUT_FIRST_ROW, _C_AL)
     # v2.2 Log wiring: a Log-transformed column's mean is EXP'd back to
-    # input space (the geometric mean) so the AH prefill — which just
+    # input space (the geometric mean) so the AK prefill — which just
     # INDEXes this spill — doesn't get double-logged when the row-4
     # prediction formula applies Ln_Positive to it.
     assert means == (
@@ -999,6 +1003,17 @@ def test_prediction_prefills_index_the_single_training_mean_spill() -> None:
         "LAMBDA(c,AVERAGE(c))),t,Constructed_Column_Transforms(),"
         'IF(t="Log",EXP(m),m))),"")'
     )
+
+    # The input cue follows the live predictor-name spill, so fixed-height
+    # formula rows below the actual model remain unfilled.
+    prediction_values = sheet.range(
+        (_PRED_INPUT_FIRST_ROW, _C_AK), (_PRED_INPUT_LAST_ROW, _C_AK)
+    )
+    conditions = prediction_values.api.FormatConditions.items
+    assert [condition.Formula1 for condition in conditions] == [
+        f"=$AJ{_PRED_INPUT_FIRST_ROW}<>\"\""
+    ]
+    assert conditions[0].Interior.Color == excel_color(INPUT_COLOR)
 
     # Perf tripwire: Predictor_Columns() is a full design-matrix construction on every
     # call, so no prefill cell may invoke it — 50 cells × 2 calls made the

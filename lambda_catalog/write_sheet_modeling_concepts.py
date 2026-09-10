@@ -310,7 +310,9 @@ def _write_template_sheet(workbook: xw.Book) -> None:
         "Regression Instructions sheet; for how to read the fitted model's residual "
         "plots, see the Diagnostic Guide."
     )
-    sheet.range((r, 1)).api.WrapText = True
+    intro = sheet.range((r, 1), (r, _LAST_COL))
+    intro.api.WrapText = True
+    intro.api.HorizontalAlignment = 7  # xlHAlignCenterAcrossSelection
     r += 2
 
     # ── Feature table ──────────────────────────────────────────────────────────
@@ -348,6 +350,17 @@ def _write_template_sheet(workbook: xw.Book) -> None:
         r += 1
 
     sheet.autofit("rows")
+
+    # Keep the title, centered introduction, and spacer visible while scrolling.
+    try:
+        window = workbook.app.api.ActiveWindow
+        window.FreezePanes = False
+        window.Split = False
+        sheet.activate()
+        sheet.range("A5").select()
+        window.FreezePanes = True
+    except Exception:
+        pass
 
 
 def write_modeling_concepts_sheet(workbook: xw.Book) -> None:

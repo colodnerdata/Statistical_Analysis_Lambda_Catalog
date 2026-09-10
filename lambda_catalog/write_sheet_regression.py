@@ -36,7 +36,7 @@ single ungrouped GAP column so the zones collapse independently; see the
   Col AI         — thin gap (width 2, ungrouped)
   Col AJ–AL      — Prediction Outputs: Prediction Interval (AJ1:AK15, boxed —
                    point/CI/PI rows 4-12, FE Group selector + ybar_i/T_i
-                   readouts rows 13-15), Prediction Inputs (AJ17+, one row
+                   readouts rows 13-15), Prediction Inputs (AJ20+, one row
                    per constructed column, no Intercept row), Training Mean
                    spill (AL23 — the single Predictor_Columns() evaluation
                    the orange AK prefills INDEX into; owns column AL downward

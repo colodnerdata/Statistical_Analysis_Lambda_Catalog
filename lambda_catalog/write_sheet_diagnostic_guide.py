@@ -247,7 +247,10 @@ def _write_template_sheet(workbook: xw.Book) -> None:
     )
     intro = sheet.range((r, 1), (r, _LAST_COL))
     intro.api.WrapText = True
-    intro.api.HorizontalAlignment = 7  # xlHAlignCenterAcrossSelection
+    try:
+        intro.api.HorizontalAlignment = 7  # xlHAlignCenterAcrossSelection
+    except Exception:
+        pass
     r += 2
 
     # ── Tier 1: Core diagnostic plots ─────────────────────────────────────────
@@ -345,10 +348,10 @@ def _write_template_sheet(workbook: xw.Book) -> None:
 
     # Keep the title, centered introduction, and spacer visible while scrolling.
     try:
-        window = workbook.app.api.ActiveWindow
+        sheet.activate()
+        window = sheet.api.Application.ActiveWindow
         window.FreezePanes = False
         window.Split = False
-        sheet.activate()
         sheet.range("A5").select()
         window.FreezePanes = True
     except Exception:

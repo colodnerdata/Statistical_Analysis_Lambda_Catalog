@@ -69,6 +69,7 @@ Manual Updates/
 
 
 # Claude local/project assistant files
-.claude/
+.claude/*
+!.claude/skills/
 .claude.json
 CLAUDE.local.md

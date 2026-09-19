@@ -344,7 +344,13 @@ def test_the_check_still_sees_work() -> None:
         for relative_path in _POLICED_DOCS
         for _, name in _candidates(ROOT_DIR / relative_path)
     ]
-    assert len(found) >= 300, f"only {len(found)} call-shaped references found"
+    # 250, not 300: the floor was set when CLAUDE.md still carried a full copy of
+    # the project rules. It is now an `@AGENTS.md` import shim, so its ~41
+    # candidates live in AGENTS.md instead — a deduplication, not a loss, and
+    # the two files' names were duplicates of each other anyway. The guard's job
+    # is to catch the detector matching nothing; at 286 candidates (of which
+    # docs/ARCHITECTURE.md alone supplies 108) it still does that.
+    assert len(found) >= 250, f"only {len(found)} call-shaped references found"
     catalog = _catalog_names()
     resolving = {name for _, name in found if name in catalog}
     assert len(resolving) >= 30, (

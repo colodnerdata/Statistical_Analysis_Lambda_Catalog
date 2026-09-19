@@ -95,7 +95,7 @@ _DEFINED_NAME_TAG = f"{_WB}definedName"
 #
 # The Cook's Distance chart labels only the influential points, from a masked
 # overlay column — the real value where D exceeds the cutoff, a masking token
-# everywhere else (see CLAUDE.md -> "Selective data labels"). The token was
+# everywhere else (see AGENTS.md -> "Selective data labels"). The token was
 # NA() while the labels came from ShowValue/ShowCategoryName, and every
 # non-flagged row of that column cached a perfectly correct #N/A, which a naive
 # scan reports as hundreds of false offenders. The labels now read the column

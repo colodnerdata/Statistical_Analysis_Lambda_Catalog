@@ -8,7 +8,7 @@ Importable from `lambda_catalog` so `build_production.py` and
 `write_sheet_csv_dataset`'s `default_csv_path`s), and it drives desktop Excel
 through xlwings. The wheel packages `lambda_catalog` only, so none of those are
 present in an installed environment — which is also why CI never runs this
-layer (see CLAUDE.md).
+layer (see AGENTS.md).
 """
 
 from __future__ import annotations

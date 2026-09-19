@@ -14,13 +14,10 @@ The actual behavior change — catalog entry, spec-block column, sheet-writer lo
 A new or extended branch in the independent NumPy/statsmodels comparison path (`calculate_regression_spec_case` in `lambda_catalog/analyze_regression_spec.py`, or the guard-state equivalent in `analyze_regression_guard_states.py`). **Reading the cell back and asserting it equals itself is not an oracle** — the comparison must be against an independently computed expected value.
 
 ## 3. A registered, pinned test-model case
-- The case is a `RegressionSpecCase` (or `GuardStateCase` for a deliberately-erroring configuration) — not a sheet fixture.
-- Check `docs/MODEL_TESTING_ASSETS.md` first: if the corner isn't listed, add it to that document before writing the case.
-- Register it in `build_regression_spec_cases()`.
-- Give it a sheet identity in `_CASE_SHEET_IDENTITY` (≤31 chars, legal Excel sheet-name charset, `<PlanID> <Concept>` — name the *concept under test*, e.g. `M05 Log-Log NA Masking`, never the variables).
-- Add the exact name to `_EXPECTED_CASE_NAMES` (or `_EXPECTED_GUARD_NAMES`) **in the same commit** — this is what stops a case being silently added, renamed, reordered, or dropped.
-- If the case uses a non-default dataset, set `source_csv_path`, `row_loader`, and `source_table_ref` **together** — `Source_Table` is the one name that retargets the data sheet; omitting it lands spec rows on the wrong columns silently.
-- Flip the row in `docs/MODEL_TESTING_ASSETS.md` §1.5's coverage matrix from new → existing.
+Building one is a procedure in its own right — follow the **`test-model-case-checklist`** skill for the eight steps (plan-of-record row first, sheet identity, registration, name pinning, the non-default-dataset trap, the coverage-matrix flip). Two facts belong in the PR-shape context, because they are about *PR completeness* rather than how-to:
+
+- The case must be a `RegressionSpecCase` (or `GuardStateCase` for a deliberately-erroring configuration) — not a sheet fixture.
+- Its exact sheet name goes into `_EXPECTED_CASE_NAMES` (or `_EXPECTED_GUARD_NAMES`) **in the same commit** — that pin is what stops a case being silently added, renamed, reordered, or dropped.
 
 ## 4. A committed excel-only-runs transcript
 Because Layer 2 (Excel-based spec-driven) verification cannot run in this container or in CI, the only evidence a human or future agent has that the build+verify actually succeeded on a machine with Excel is a transcript in `excel-only-runs/`, **committed via `git add`** (not pasted into the PR description). Run the build and verify on a machine with desktop Excel, then commit the transcript for the new/changed sheet.

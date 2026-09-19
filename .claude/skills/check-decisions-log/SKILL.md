@@ -1,28 +1,27 @@
 ---
 name: check-decisions-log
-description: Grep docs/DECISIONS.md before proposing a nontrivial design change to the Regression/Univariate engine, sheet layout, or named-range scoping — several clean-looking ideas here are recorded as tried-and-reverted. Use before implementing (not after) any change that smells architectural, and add a new dated entry when you make a genuinely new nontrivial reversible-looking choice.
+description: Consult docs/DECISIONS.md before implementing a design change, not after, and append a dated entry when the choice is genuinely new. The classes worth checking — splitting or merging a workbook/artifact, changing a materialized zone between individual cells and one spill, named-range scope or book.names.add, OFFSET vs TAKE/dynamic arrays, per-point COM loops vs a masked overlay series, and anything touching Log / Log-drop transforms or the QC comparison scale.
 ---
 
 # Check the decisions log before re-trying a reverted idea
 
-`docs/DECISIONS.md` is a long, append-only log of this project's design decisions — including several that were tried, shipped, and later **SUPERSEDED** or explicitly reverted. An agent that hasn't read the whole file (it's thousands of lines) can easily re-propose one of these as if it were a fresh idea.
+`docs/DECISIONS.md` is a long, append-only log of this project's design decisions — including several that shipped and were later **SUPERSEDED** or explicitly reverted. An agent that hasn't read the whole file (thousands of lines) can easily re-propose one of these as if it were a fresh idea.
 
-## When to check
-Before implementing, not after, when a change smells like any of these:
-- Splitting a workbook/artifact into multiple pieces, or merging pieces back together.
-- Changing a materialized zone (e.g. Model Context) from individual cells to a single spill (`VSTACK`), or vice versa.
-- Using `book.names.add` instead of sheet-scoped names, or changing named-range scope in general.
-- Switching between `OFFSET` and `TAKE`/dynamic-array patterns for a named range.
-- Per-point COM loops for chart formatting/labels instead of a masked overlay series.
-- Silently switching or ignoring a computation instead of flagging it (this repo's repeated philosophy: visible failure over a silent wrong number).
-- Anything touching how `Log`/`Log (drop ≤ 0)` transforms are compared, or the QC comparison-scale conventions.
+The classes of change that trigger a check are stated in `AGENTS.md` → *PR workflow*. This skill is the **how**, not a second copy of the when.
 
-## How to check
+## How to search
+
 ```
-grep -n "<keyword>" docs/DECISIONS.md
+grep -n "<mechanism>" docs/DECISIONS.md
 ```
-Search for the feature/mechanism name, not just the symptom. Known reverted/superseded threads worth searching for by name: "two-artifact" / "Univariate becomes its own workbook" (reversed at v3.0/v3.1), "model context is individual cells" (spill rejected), heatmap → profile-NLL line chart switch for Weibull/Gamma.
+
+Search for the **mechanism name**, not the symptom. Threads known to be recorded as tried-then-reverted or superseded:
+
+- **"two-artifact" / "Univariate becomes its own workbook"** — reversed at v3.0/v3.1.
+- **"model context is individual cells"** — the single-`VSTACK`-spill version was rejected.
+- **heatmap → profile-NLL line chart** for the Weibull/Gamma fits.
 
 ## What to do with what you find
-- **Matches an existing decision** → follow it, or if you believe it should change, say so explicitly in the PR description with the reasoning — don't silently diverge.
-- **Genuinely new nontrivial, reversible-looking choice** (not covered by any existing entry) → add a new dated entry to `docs/DECISIONS.md` in the same PR. The log is a rule to maintain, not just a reference to consult.
+
+- **Matches an existing decision** → follow it. If you believe it should change, say so explicitly in the PR description with the reasoning — don't silently diverge.
+- **Genuinely new nontrivial, reversible-looking choice** (covered by no existing entry) → add a dated entry to `docs/DECISIONS.md` in the same PR. The log is a rule to maintain, not just a reference to consult.

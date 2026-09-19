@@ -1,35 +1,24 @@
 ---
 name: sheet-writer-conventions
-description: Consolidated checklist of recurring mistakes when writing or editing any write_sheet_*.py module (colors, cell addresses, named-range scope, charts, activation/freeze calls, calculation mode, workbook-scope catalog bodies). Use before and while editing any sheet-writer file in lambda_catalog/.
+description: Index of recurring mistakes when writing or editing any write_sheet_*.py module — cell colours, A1 addresses in formulas, named-range scope, spill-reader references, charts, activation/freeze calls, calculation mode. Points at the canonical rule for each rather than restating it. Use before and while editing any sheet-writer file in lambda_catalog/.
 ---
 
-# Sheet writer conventions
+# Sheet writer conventions — where each rule lives
 
-This repo's sheet writers (`write_sheet_regression.py`, `write_sheet_univariate.py`, etc.) have several conventions that are easy to violate without anything failing loudly at write time. Check all of these before finishing an edit.
+Every rule below is stated in full in `AGENTS.md`, which is always in context, and at more length in `CONTRIBUTING.md`. **This file is an index, not a second copy:** read the canonical section rather than trusting a paraphrase here. A paraphrase of a rule rots silently — nothing checks this file, and a stale line number in it is exactly how the previous version went wrong.
 
-## Colors
-All cell colors live in `lambda_catalog/sheet_styles.py` (`HEADER_COLOR`, `SUBHDR_COLOR`, `INPUT_COLOR`, `CF_LIGHT_RED_FILL`, `CF_DARK_RED_TEXT`, `CF_YELLOW_FILL`, `CF_DARK_YELLOW_TEXT`). **Never hard-code an RGB tuple in a sheet writer.** Import with the `as _NAME` alias pattern used elsewhere (`from .sheet_styles import HEADER_COLOR as _HEADER`).
+| About to… | Headline rule | Canonical section |
+|---|---|---|
+| set a cell colour | Never hard-code an RGB tuple; import from `sheet_styles.py` with the `as _NAME` alias | AGENTS.md → *Cell styling* |
+| put an A1 address in a formula, CF rule, chart title, or OFFSET name | Never spell it — build from the `_C_*` constants via `_abs_ref` / `_band` / the `_A_*` anchors; the same applies to anything reading the sheet from outside | AGENTS.md → *Regression sheet heading hierarchy* |
+| add a defined name | Sheet-scoped `sheet.api.Names.Add`, never `book.names.add`; every name gets a `.Comment` at the add site | AGENTS.md → *Workbook scope belongs to the catalog* |
+| add a workbook-scoped catalog body | Sheet-agnostic (unqualified spec refs) unless deliberately declared sheet-scoped | AGENTS.md → same section |
+| reference a spill reader (`Fit_Context`, `Fit_Design_Columns`, `Fit_Sample_Include`) from a RefersTo written before the materialization zone | Qualify it with the owning sheet at install time — `qualify_spill_reader_references` | AGENTS.md → same section |
+| add or change a chart | xlwings COM only, never openpyxl; `.Text` vs `.Formula`; identity lines as a real series; selective labels as a masked overlay; title cells outside the `try/except` | AGENTS.md → *Charts — patterns and pitfalls* |
+| activate a sheet or freeze panes | `safe_activate` / `safe_freeze_top_row`; freeze at the selection, never `SplitRow`; the Regression sheet's three-row freeze is its own inline `try/except` | AGENTS.md → *Guard headless/no-focus Excel calls* |
+| set the calculation mode | Two different phases — see below | — |
 
-## Cell addresses in formulas
-**Never spell an A1 address into a formula string.** Hand-written letters silently read the wrong cell after a column insertion — the formula still parses. Build every address from the `_C_*` column constants via `_abs_ref(row, col)` / `_band(col)` and the `_A_*` anchors at the top of the relevant writer module. Anything reading the sheet from outside (`tools/inspect_regression_sheet.py`, `lambda_catalog/analyze_regression_spec_block.py`) must import those same constants rather than keeping a parallel copy.
+## Calculation mode — the one piece of detail this index carries
 
-## Named ranges
-- Sheet-scoped: `sheet.api.Names.Add(...)` — used for wiring names, `RegChart*` chart-range names, `UV_*` names, spill readers.
-- Workbook-scoped: **only** `lambda_functions.json` catalog LAMBDAs, via `sync_workbook_names`. Never call `book.names.add` from a sheet writer — every build drops any workbook-scoped name that isn't a catalog function.
-- **Every defined name needs a `.Comment`**, set immediately after `Names.Add`: `_nm = sheet.api.Names.Add(...); _nm.Comment = "..."`. For a constructor-closure site, the comment is the catalog entry's `notes` field verbatim. `tests/test_workbook_invariants.py::test_every_defined_name_carries_a_comment` checks the committed dist for this, so a comment-less name fails the suite, not just the Name Manager UX.
-- A **workbook-scoped catalog LAMBDA must be sheet-agnostic** (unqualified spec references) unless deliberately declared sheet-scoped (`"scope": "Regression"` style, like `Base_Period_Delta`). A body that hardcodes `'Regression'!` breaks in a workbook with several Regression-shaped sheets (every sheet reads whichever is literally named "Regression") and in a workbook with none (`#NAME?`).
-- A RefersTo body written **before** the materialization zone that references a spill reader (`Fit_Context`, `Fit_Design_Columns`, `Fit_Sample_Include`) must qualify it with the owning sheet at install time — see `qualify_spill_reader_references` / `SPILL_READER_NAMES` in `regression_materialization.py`. Unqualified resolution against the calling formula's sheet does NOT hold inside a RefersTo for a late-created name.
-
-## Charts
-- **xlwings COM only** — `sheet.api.ChartObjects().Add(...)`. Never `openpyxl` for a workbook that has Excel-created charts: its `load_workbook()`/`save()` rewrites the whole package and silently drops chart parts, VML, and chartUserShapes it didn't create.
-- `.Text` for a static chart title; `.Formula` (pointed at a dedicated cell) for a title that needs to update dynamically. Never pass a formula string to `.Text`.
-- Reference lines (e.g. `y=x`): a real data series with matching `XValues`/`Values` against a named range, `ChartType = xlXYScatterLinesNoMarkers`. Never `chart.Shapes.AddLine(...)` — a shape sits at fixed pixel coordinates and goes wrong on resize/rescale.
-- Selective data labels: a masked overlay series/column, not per-point COM loops. Token is `NA()` under `ShowValue`/`ShowCategoryName`, `""` under Value-From-Cells (and if `""`, every other label element must be off or it prints on every point).
-- Write chart-title formula cells **outside** the try/except guard (plain cell writes, testable via the `RecordingSheet` mock); only the actual `ChartObjects().Add(...)` call needs the guard.
-
-## Activation / freeze panes
-Use `safe_activate(sheet)` / `safe_freeze_top_row(sheet)` from `workbook_helpers.py` — both are `try/except Exception: pass` wrappers, because `Application.ActiveWindow` raises with no interactive desktop/focus and that failure must not abort `build_production_workbook()`. Exception: the Regression sheet freezes its top **three** rows via its own inline `try/except` (not `safe_freeze_top_row`, which is single-row only) — follow that inline pattern if a future sheet needs a multi-row freeze. Always freeze at the selection (`select` the cell below the frozen band, then `ActiveWindow.FreezePanes = True`) and clear any stale `FreezePanes`/`Split` first — never set `SplitRow`, which persists as `frozenSplit` instead of a true `frozen` pane state.
-
-## Calculation mode — two different phases, don't conflate them
-- **Within a sheet-writing/verification session** (`build_test_models.py`, `build_demo_workbook.py`, `deep_verify.py`, `analyze_model_construction.py`): `XL_CALCULATION_MANUAL` during writes, then `XL_CALCULATION_SEMIAUTOMATIC` before that session's own save.
-- **The production build is different and unconditional**: `build_common._recalculate_and_save` sets `XL_CALCULATION_MANUAL`, runs `CalculateFullRebuild()`, then sets `calc_mode` — whose **default is `XL_CALCULATION_AUTOMATIC`** (Excel's real "Automatic", constant `-4105`) — before the final save. Confirmed at `build_production.py:395` and pinned by `test_build_production.py`. The shipped `dist/Lambda_Library.xlsx` ships in full Automatic, not semiautomatic. Don't assume the sheet-writer MANUAL→SEMIAUTOMATIC pattern also describes the final production artifact's saved calc mode.
+- **Within a sheet-writing or verification session** (`build_test_models.py`, `build_demo_workbook.py`, `deep_verify.py`, `analyze_model_construction.py`): `XL_CALCULATION_MANUAL` during writes, then `XL_CALCULATION_SEMIAUTOMATIC` before that session's own save.
+- **The production build is different and unconditional**: `build_common._recalculate_and_save` always runs `CalculateFullRebuild()`, and its `calc_mode` default is `XL_CALCULATION_AUTOMATIC`. Cite that function and the test that pins it — **never a line number**.

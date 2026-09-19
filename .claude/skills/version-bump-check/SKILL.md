@@ -1,16 +1,13 @@
 ---
 name: version-bump-check
-description: Decide which version number to bump — LAMBDA catalog (library) version, workbook version, or both — before finalizing any change to lambda_catalog/ or a sheet writer. Use near the end of a change, once the diff is settled.
+description: Decide which version number to bump — library (LAMBDA catalog), workbook, or both — before finalizing any change to lambda_catalog/ or a write_sheet_*.py module. Use near the end of a change, once the diff is settled.
 ---
 
 # Which version number moves
 
-This repo ships two independent version numbers, and it's easy to bump the wrong one or forget one entirely. Per `CONTRIBUTING.md`'s "which version number moves" table:
+**The authority is `CONTRIBUTING.md` → *Which version number moves*** — a three-row table: catalog content or function count → **library** version only; sheet layout with no catalog change → **workbook** version only; both → **both**. That section also carries the release procedure, whose step 5 is where the library version actually moves. This file deliberately does not restate the table — a second copy of a three-row rule is a divergence surface with no upside.
 
-| Change touches... | Bump |
-|---|---|
-| `lambda_functions.json` content or function count (new/changed/removed catalog LAMBDA) | **Library** version only |
-| Sheet layout only (rows/columns/zones/charts on an existing sheet, no catalog change) | **Workbook** version only |
-| Both a catalog change and a sheet-layout change | **Both** |
+Two things this reminder adds, both about *timing* rather than content:
 
-Before finalizing any change to `lambda_catalog/` or a `write_sheet_*.py` module, check the diff against this table and confirm the correct version(s) were bumped — don't assume a catalog change alone justifies skipping the workbook version, or vice versa, if the diff actually touches both.
+- **Check once the diff is settled, not as you go.** The table keys on what the diff touches, so a diff still in motion can answer it wrongly.
+- **Neither number excuses the other.** A catalog edit does not mean the workbook version stands still if the same change also moved sheet layout — read the table against the whole diff.

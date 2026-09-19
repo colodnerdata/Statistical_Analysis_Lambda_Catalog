@@ -387,7 +387,7 @@ def build_test_models_workbook(
     result = sync_workbook_names(workbook_path, document.workbook_functions)
     sync_elapsed = time.monotonic() - sync_start
 
-    # The rebuild is not optional here, for the same reason CLAUDE.md gives
+    # The rebuild is not optional here, for the same reason AGENTS.md gives
     # for the Regression artifact: the name sync rewrites the catalog's
     # workbook-scoped LAMBDAs, and a per-sheet Calculate() does not rebuild
     # the dependency tree behind them, so every engine value would read nan.

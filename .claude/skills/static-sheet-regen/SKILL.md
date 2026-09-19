@@ -1,20 +1,18 @@
 ---
 name: static-sheet-regen
-description: One-step reminder that editing write_sheet_regression_instructions.py, write_sheet_modeling_concepts.py, or write_sheet_diagnostic_guide.py has zero effect on any build until templates/static_sheets.xlsx is regenerated and committed. Use immediately after editing any of those three files.
+description: Reminder that editing write_sheet_regression_instructions.py, write_sheet_modeling_concepts.py, or write_sheet_diagnostic_guide.py has zero effect on any build until templates/static_sheets.xlsx is regenerated and committed. Use immediately after editing any of those three files.
 ---
 
-# Static reference sheets must be regenerated
+# Regenerate the static template after editing a static sheet writer
 
-`write_sheet_regression_instructions.py`, `write_sheet_modeling_concepts.py`, and `write_sheet_diagnostic_guide.py` write their content (`_ROWS` / `_write_template_sheet`) **only into `templates/static_sheets.xlsx`**. `build_production.py` never executes that Python content directly — it copies the already-baked sheet via `copy_static_sheet`.
+The rule in full, including the per-module-CLI trap it exists to prevent, is `AGENTS.md` → *Static reference sheets — regenerate via `rebuild_static_sheets.py`, not the per-module CLI*. Read it there; this file is the reminder, not the rule.
 
-**Editing one of these three modules has zero effect on any build until the template is regenerated and committed.** This has already shipped stale doc text at least twice.
-
-## Required after any edit to these files
+The short version, because this one is easy to lose at the moment you finish an edit:
 
 ```
 python scripts/rebuild_static_sheets.py
 ```
 
-Then commit the regenerated `templates/static_sheets.xlsx` **in the same PR** as the Python change.
+Then commit the regenerated `templates/static_sheets.xlsx` **in the same PR** as the Python change. Editing one of those three modules changes nothing any build can see until that template is regenerated and committed.
 
-The per-module CLIs (for single-sheet debugging) still exist, but running one of those instead of the combined script is the exact failure mode this skill exists to prevent — it writes to the wrong place and leaves the template stale.
+**A reminder is not a guard — so one now exists.** `tests/test_static_template_freshness.py` reads the three writers' source (AST) and the committed template (zipfile — no Excel required) and fails when text a writer produces is absent from its sheet, so a forgotten regeneration is caught by the suite rather than by a reviewer's memory. It runs in CI. This file is still worth reading: the test tells you *after* the work, this tells you *before* it.

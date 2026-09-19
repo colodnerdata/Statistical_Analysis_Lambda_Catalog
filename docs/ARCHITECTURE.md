@@ -384,7 +384,7 @@ The block is self-sizing bands and spills, not a fixed Excel Table, so a
 retarget resizes it rather than leaving it at its build-time height. A
 table-based block would grow only when the *user* typed into the row below
 its bottom edge — a retarget alone left it short — which is why the block is
-table-free (see CLAUDE.md → *The spec block has no fixed height*).
+table-free (see AGENTS.md → *The spec block has no fixed height*).
 
 ### Display derives, never feeds
 
@@ -922,12 +922,12 @@ human test plan.
 
 ## 6. Chart patterns and pitfalls
 
-The full chart-creation rules live in [CLAUDE.md](../CLAUDE.md) / [AGENTS.md](../AGENTS.md)
-at the project-instructions tier (xlwings COM, never openpyxl; `.Text` for
+The full chart-creation rules live in [AGENTS.md](../AGENTS.md) at the
+project-instructions tier (xlwings COM, never openpyxl; `.Text` for
 static titles, `.Formula` for cell-linked; histogram `GapWidth = 0`;
 identity lines as real data series; chart title cells outside the
 try/except guard; etc.). ARCHITECTURE does not duplicate those — the
-file would be three copies instead of two. The single line of
+file would be two copies instead of one. The single line of
 cross-cutting context that's worth recording here:
 
 - **Why xlwings COM, never openpyxl.** openpyxl's `load_workbook`/`save`
@@ -942,7 +942,7 @@ cross-cutting context that's worth recording here:
 
 For the implementation details (chart-creation pattern, histogram
 formatting, chart positioning, identity-line construction, build-phase
-retry separation), see [CLAUDE.md § Charts](../CLAUDE.md).
+retry separation), see [AGENTS.md § Charts](../AGENTS.md).
 
 ---
 

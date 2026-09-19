@@ -244,7 +244,7 @@ over `SEQUENCE(nc)`, which read whatever `Source_Table` points at. A fixed
 `ListObject` pinned to the build-time dataset could not track a retarget —
 `TAKE` does not pad, so a 12-row band under a 23-column table would return 12
 rows and `INDEX(rl, 23)` would run off the end — which is why the block is
-table-free (see CLAUDE.md → *The spec block has no fixed height*).
+table-free (see AGENTS.md → *The spec block has no fixed height*).
 
 The case earns its sheet by where its evidence sits, not by the model it fits:
 `Schooling` contributes design columns from spec index 21 — sheet row 25, ten

@@ -88,7 +88,7 @@ def test_no_computed_display_is_ever_cleared() -> None:
     """J/K/L/O hold spills and formulas — clearing one would blank the display.
 
     The computed columns are single ``MAP`` spills anchored at the first data
-    row (CLAUDE.md: 'the four computed columns ... are each ONE spill'), so a
+    row (AGENTS.md: 'the four computed columns ... are each ONE spill'), so a
     per-row ``clear_contents`` over them would destroy the spill rather than
     reset a value.
     """

@@ -123,8 +123,8 @@ ROW_PI_POINT = 4           # AK4 = point estimate
 ROW_FE_GROUP = 13          # AK13 = FE Group selector (an input)
 ROW_GROUP_MEAN = 14
 ROW_GROUP_COUNT = 15
-ROW_PRED_INPUT_FIRST = 20  # AK20 = first user-editable predictor value
-ROW_PRED_INPUT_LAST = 63   # end of the guarded prefill band
+ROW_PRED_INPUT_FIRST = 23  # AK23 = first user-editable predictor value
+ROW_PRED_INPUT_LAST = 66   # end of the guarded prefill band
 ROW_RESID_FIRST = 4
 
 # The v3.3 Back-Transform Method input ($AH$5).

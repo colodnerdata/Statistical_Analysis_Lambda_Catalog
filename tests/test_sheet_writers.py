@@ -1005,11 +1005,15 @@ def test_prediction_prefills_index_the_single_training_mean_spill() -> None:
     )
 
     # The input cue follows the live predictor-name spill, so fixed-height
-    # formula rows below the actual model remain unfilled.
-    prediction_values = sheet.range(
-        (_PRED_INPUT_FIRST_ROW, _C_AK), (_PRED_INPUT_LAST_ROW, _C_AK)
+    # formula rows below the actual model remain unfilled. Read the CF rule
+    # back through the same string address the writer used — the mock keys
+    # ranges by literal address form, so a tuple-address range here would be
+    # a different (empty) object than the one add_expression_format wrote to.
+    prediction_values_address = (
+        f"${col_letter(_C_AK)}${_PRED_INPUT_FIRST_ROW}:"
+        f"${col_letter(_C_AK)}${_PRED_INPUT_LAST_ROW}"
     )
-    conditions = prediction_values.api.FormatConditions.items
+    conditions = sheet.range(prediction_values_address).api.FormatConditions.items
     assert [condition.Formula1 for condition in conditions] == [
         f"=$AJ{_PRED_INPUT_FIRST_ROW}<>\"\""
     ]

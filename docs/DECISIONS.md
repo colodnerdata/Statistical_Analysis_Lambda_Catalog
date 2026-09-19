@@ -4457,3 +4457,32 @@ runs. (A gap remains by the same token: the structural screen reads workbook
 *structure* — names, scopes, charts — not cached cell *values*, so a literal
 `#VALUE!` cached in a data sheet is not caught by it; that is a separate open
 item, not a regression of this one.)
+
+---
+
+## Repository tooling — line endings
+
+### The line-ending policy is a repository attribute, not a clone's `core.autocrlf`
+
+**Question:** the developer machine sets `core.autocrlf=true`, so Git checks text
+out as CRLF and warns "LF will be replaced by CRLF the next time Git touches it"
+on every edit, while the index holds LF. A clone without that setting gets a
+different working tree, and nothing in the repository stated which form was
+intended — so the answer lived in one person's Git config.
+
+**Resolution:** RESOLVED — `.gitattributes` sets `* text=auto eol=lf` and marks
+`*.xlsx` / `*.pptx` as binary. A search of this file by mechanism name
+("autocrlf", "gitattributes", "line ending", "eol") found no prior entry, so this
+is a first decision rather than a reversal.
+
+**Rationale.** An attribute in the repository beats a setting in a clone's config:
+the working tree stops depending on who cloned it, and the warning stops because
+the repository finally says one thing instead of the config saying another. LF is
+safe here because nothing tracked needs CRLF — there is no `.bat`/`.cmd` in the
+repository at all, which is the usual reason to keep it. The change is deliberately
+a *pin*, not a renormalisation: every tracked text file already holds LF in the
+index, so nothing is rewritten and no commit churns line endings. A later reader
+seeing `git ls-files --eol` report `w/crlf` next to `i/lf` should read that as the
+pre-existing checkout state rather than drift this file introduced. The artifact
+lines are explicit rather than left to `text=auto`'s detection because a
+misdetected `.xlsx` would be "normalised" as text and silently corrupted.

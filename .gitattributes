@@ -1,0 +1,27 @@
+# Line-ending policy.
+#
+# Every text file is stored with LF in the repository and checked out with LF on
+# every platform. This pins what is already true for almost every tracked text
+# file, so nothing has to be rewritten and this commit churns no line endings.
+# The exception is two sample datasets committed with CRLF
+# (sample_data/Life Expectancy Data.csv, sample_data/production_lots.csv): they
+# are data rather than source, are read by pandas, and are left alone here. They
+# will flip to LF the first time they are edited and re-added — a whole-file diff
+# at that moment, not a correctness problem. Renormalising them deliberately is a
+# separate change.
+#
+# It also settles an ambiguity: the developer machine sets `core.autocrlf=true`,
+# which checks text out as CRLF and makes Git warn "LF will be replaced by CRLF
+# the next time Git touches it" on every edit, while other clones of this repo
+# would not. An attribute in the repository beats a setting in one person's
+# config, so the working tree stops depending on who cloned it.
+#
+# LF is safe here because nothing tracked needs CRLF: no .bat/.cmd (whose parser
+# is line-ending sensitive) and no .ps1 are in the repository at all.
+* text=auto eol=lf
+
+# The shipped artifacts are zip archives, not text. `text=auto` would detect them
+# as binary on its own, but a misdetection would rewrite an .xlsx as text and
+# corrupt it silently, so the intent is stated rather than assumed.
+*.xlsx binary
+*.pptx binary

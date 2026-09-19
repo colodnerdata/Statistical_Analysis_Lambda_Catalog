@@ -9,6 +9,6 @@ The project rules live in **[AGENTS.md](AGENTS.md)**, imported above. That file 
 Claude Code specifics:
 
 - **Project skills** live in `.claude/skills/` — `regression-pr-shape`, `test-model-case-checklist`, `sheet-writer-conventions`, `deep-verify-before-done`, `static-sheet-regen`, `check-decisions-log`, `version-bump-check`. They are the edit-time triggers for the rules in `AGENTS.md`.
-- `.agents/skills/` holds skills for the other agent tools; today that is `brag-sheet` alone. A skill reaches those tools only if it has a copy there.
+- `.agents/skills/` holds copies of these skills for the other agent tools; a skill reaches those tools only if it has a copy there. It also carries `brag-sheet`, a vendored third-party skill (MIT, from `github/awesome-copilot`) that is not a project rule trigger and is mirrored in both `.claude/skills/` and `.agents/skills/`.
 
 See `AGENTS.md` for everything else — build and verify workflows, the testing regime, sheet layout and the spec block, chart conventions, and the QC comparison scale.

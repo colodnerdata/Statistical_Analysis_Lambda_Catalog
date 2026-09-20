@@ -230,6 +230,7 @@ from .regression_layout import (  # noqa: F401  — re-exported for importers
     _A_RESPONSE_READOUT,
     _A_SIGNIFICANCE_F,
     _A_STANDARD_ERROR,
+    _A_UNIT_GOF_TRIPLET,
     _BACK_TRANSFORM_DEFAULT,
     _BACK_TRANSFORM_METHODS,
     _BACK_TRANSFORM_NOTE,
@@ -924,7 +925,7 @@ def _setup_local_names(
         ),
         (
             "Comparison_Headline_GoF",
-            f"={sname}!$AH$7:$AH$9",
+            f"={sname}!{_A_UNIT_GOF_TRIPLET}",
             "Unit-space goodness-of-fit triplet (R², adjusted R², RMSE) — feeds the v3.4 Model Comparison headline row",
         ),
         (

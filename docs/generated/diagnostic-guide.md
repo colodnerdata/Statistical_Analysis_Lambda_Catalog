@@ -120,8 +120,8 @@ PRESS residuals inflate the ordinary residual by leverage. Bars are ordered by o
 
 | Diagnostic | Location on sheet | Yellow threshold | Red threshold |
 |---|---|---|---|
-| GVIF (Generalized Variance Inflation Factor) | Col U, Predictor Summary | GVIF > 5  (possible collinearity) | GVIF > 10  (strong collinearity) |
-| Tolerance | Col V, Predictor Summary | Tolerance < 0.2 | Tolerance < 0.1 |
+| GVIF (Generalized Variance Inflation Factor) | Col X, Predictor Summary | GVIF > 5  (possible collinearity) | GVIF > 10  (strong collinearity) |
+| Tolerance | Col Y, Predictor Summary | Tolerance < 0.2 | Tolerance < 0.1 |
 | PRESS R² | Cell AE6, Diagnostics | — | PRESS R² < 0  (worse than predicting Y-mean) |
 | QQ Correlation | Cell AE11, Diagnostics | < 0.98  (mild non-normality) | < 0.95  (clear non-normality) |
 | Significance F | Cell AF16, ANOVA Table | — | P-value > alpha  (model not significant) |

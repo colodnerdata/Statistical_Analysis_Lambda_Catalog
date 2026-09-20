@@ -437,6 +437,7 @@ def test_build_writes_univariate_sheet(monkeypatch, tmp_path) -> None:
                 "Regression Instructions",
                 "Modeling Concepts",
                 "Diagnostic Guide",
+                "Model Comparison Guide",
             ),
         )
     ]
@@ -1039,9 +1040,9 @@ def test_reorder_and_style_sheet_tabs_orders_front_matter_and_sets_colors(
 ) -> None:
     """The unified workbook's tab order puts the analysis templates first
     (Regression, Regression Instructions, Modeling Concepts, Diagnostic
-    Guide, Univariate), then the reference sheets (LAMBDA_functions, Version
-    History), then the data sheets (Production Lots, Life Expectancy Data,
-    Mileage Data)."""
+    Guide, Model Comparison Guide, Univariate), then the reference sheets
+    (LAMBDA_functions, Version History), then the data sheets (Production
+    Lots, Life Expectancy Data, Mileage Data)."""
     book = _TabOrderBook(
         [
             "LAMBDA_functions",
@@ -1053,6 +1054,7 @@ def test_reorder_and_style_sheet_tabs_orders_front_matter_and_sets_colors(
             "Production Lots",
             "Version History",
             "Regression Instructions",
+            "Model Comparison Guide",
             "Univariate",
         ]
     )
@@ -1074,6 +1076,7 @@ def test_reorder_and_style_sheet_tabs_orders_front_matter_and_sets_colors(
         "Regression Instructions",
         "Modeling Concepts",
         "Diagnostic Guide",
+        "Model Comparison Guide",
         "Univariate",
         "LAMBDA_functions",
         "Version History",
@@ -1091,6 +1094,7 @@ def test_reorder_and_style_sheet_tabs_orders_front_matter_and_sets_colors(
         "Modeling Concepts": build_production.SUBHDR_COLOR,
         "Regression": build_production.SUBHDR_COLOR,
         "Diagnostic Guide": build_production.SUBHDR_COLOR,
+        "Model Comparison Guide": build_production.SUBHDR_COLOR,
     }
 
 

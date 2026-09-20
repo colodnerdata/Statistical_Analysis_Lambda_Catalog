@@ -166,19 +166,37 @@ _FORMAT_BAND_LAST_ROW = 66
 # header row included — see write_spec_block._HEADER_ROW), row 4+ = data
 # and spills. Freeze panes at A4 keeps all of rows 1–3 on screen.
 _ROW_DATA_FIRST = 4            # first spilled data row in every full-height zone
+_ROW_MULTIPLE_R = 5
+_ROW_R_SQUARED = 6
 _ROW_ADJUSTED_R_SQUARED = 7
 _ROW_STANDARD_ERROR = 8
 _ROW_OBSERVATIONS = 9
 _ROW_PRESS = 5
 _ROW_PRESS_R_SQUARED = 6
 _ROW_MEAN_LEVERAGE = 7
+_ROW_AIC = 8
+_ROW_BIC = 9
+_ROW_AICC = 10
 _ROW_QQ_CORRELATION = 11
+_ROW_DURBIN_WATSON = 12
+_ROW_BFN_DURBIN_WATSON = 13
 _ROW_ALPHA = 13                # confidence-level input
 _ROW_SIGNIFICANCE_F = 16
+_ROW_F_STATISTIC = 16          # ANOVA table: the Regression row's F cell
+# The ANOVA table's Residual row df cell (_C_AB); the anchor "the ANOVA
+# Regression df at $AB$16 is p − 1, not p" contrast below refers to is the
+# row-16 sibling on the Regression side.
 _ROW_ANOVA_RESIDUAL_DF = 17    # ANOVA table: the Residual row's df cell
 _ROW_COEFF_FIRST = 22
 _ROW_RESPONSE_READOUT = 3      # Predicted Variable readout
 _ROW_FE_GROUP = 13             # prediction-zone FE group selector
+# Unit-space fit block (AG4:AH10): the Smearing Factor and the three unit-space
+# goodness-of-fit cells, then the Response Space statement closing the block.
+_ROW_UNIT_SMEARING_FACTOR = 6
+_ROW_UNIT_R_SQUARED = 7
+_ROW_UNIT_ADJUSTED_R_SQUARED = 8
+_ROW_UNIT_RMSE = 9
+_ROW_RESPONSE_SPACE = 10
 
 
 def _abs_ref(row: int, col: int) -> str:
@@ -192,7 +210,12 @@ def _band(col: int, first_row: int = _ROW_DATA_FIRST) -> str:
     return f"{letter}{first_row}:{letter}{MAX_EXCEL_ROW}"
 
 
-# Statistics / diagnostics cells other formulas key on.
+# Statistics / diagnostics cells other formulas key on. The Regression
+# Statistics block (rows 5-13) and the diagnostics block (rows 5-13 in the
+# AE column) are read by name in prose on the static reference sheets and by
+# address in formulas; both consumers derive from these.
+_A_MULTIPLE_R = _abs_ref(_ROW_MULTIPLE_R, _C_AB)
+_A_R_SQUARED = _abs_ref(_ROW_R_SQUARED, _C_AB)
 _A_ALPHA = _abs_ref(_ROW_ALPHA, _C_AB)
 _A_OBSERVATIONS = _abs_ref(_ROW_OBSERVATIONS, _C_AB)
 _A_STANDARD_ERROR = _abs_ref(_ROW_STANDARD_ERROR, _C_AB)
@@ -200,13 +223,19 @@ _A_ADJUSTED_R_SQUARED = _abs_ref(_ROW_ADJUSTED_R_SQUARED, _C_AB)
 _A_PRESS = _abs_ref(_ROW_PRESS, _C_AE)
 _A_PRESS_R_SQUARED = _abs_ref(_ROW_PRESS_R_SQUARED, _C_AE)
 _A_MEAN_LEVERAGE = _abs_ref(_ROW_MEAN_LEVERAGE, _C_AE)
+_A_AIC = _abs_ref(_ROW_AIC, _C_AE)
+_A_BIC = _abs_ref(_ROW_BIC, _C_AE)
+_A_AICC = _abs_ref(_ROW_AICC, _C_AE)
 _A_QQ_CORRELATION = _abs_ref(_ROW_QQ_CORRELATION, _C_AE)
+_A_DURBIN_WATSON = _abs_ref(_ROW_DURBIN_WATSON, _C_AE)
+_A_BFN_DURBIN_WATSON = _abs_ref(_ROW_BFN_DURBIN_WATSON, _C_AE)
 _A_SIGNIFICANCE_F = _abs_ref(_ROW_SIGNIFICANCE_F, _C_AF)
+_A_F_STATISTIC = _abs_ref(_ROW_F_STATISTIC, _C_AE)
 _A_RESPONSE_READOUT = _abs_ref(_ROW_RESPONSE_READOUT, _C_AF)
 _A_FE_GROUP = _abs_ref(_ROW_FE_GROUP, _C_AK)
-# The ANOVA Residual df cell (n − p − absorbed) and the spec block's Σ Design
-# Columns total (p, intercept column included). Together they are the reference
-# F distribution for Cook's Distance — see _COOKS_CUTOFF below.
+# The ANOVA Residual df cell (n − p − absorbed). Together with the spec block's
+# Σ Design Columns total (p, intercept column included) it is the reference F
+# distribution for Cook's Distance — see _COOKS_CUTOFF below.
 _A_RESIDUAL_DF = _abs_ref(_ROW_ANOVA_RESIDUAL_DF, _C_AB)
 _A_DESIGN_COLUMNS_TOTAL = _abs_ref(1, _C_SPEC_DESIGN_COLUMNS)
 
@@ -236,6 +265,18 @@ _COOKS_CUTOFF = f"IFERROR(F.INV(0.5,{_A_DESIGN_COLUMNS_TOTAL},{_A_RESIDUAL_DF}),
 # block — sibling to the section heading at row 4 — so the rest of the block
 # (rows 6–10) and the prediction column (AL) can reference a single source.
 _A_BACK_TRANSFORM_METHOD = _abs_ref(5, _C_AH)
+# The rest of the unit-space block, read by the static reference sheets (and by
+# any consumer that needs the block by name rather than by position).
+_A_SMEARING_FACTOR = _abs_ref(_ROW_UNIT_SMEARING_FACTOR, _C_AH)
+_A_UNIT_R_SQUARED = _abs_ref(_ROW_UNIT_R_SQUARED, _C_AH)
+_A_UNIT_ADJUSTED_R_SQUARED = _abs_ref(_ROW_UNIT_ADJUSTED_R_SQUARED, _C_AH)
+_A_UNIT_RMSE = _abs_ref(_ROW_UNIT_RMSE, _C_AH)
+_A_RESPONSE_SPACE = _abs_ref(_ROW_RESPONSE_SPACE, _C_AH)
+# The unit-space goodness-of-fit triplet as a range — the range
+# Comparison_Headline_GoF points at.
+_A_UNIT_GOF_TRIPLET = (
+    f"{_A_UNIT_R_SQUARED}:{_abs_ref(_ROW_UNIT_RMSE, _C_AH)}"
+)
 # The two back-transform methods, and the default written into AH5 as a
 # LITERAL. The cell is an input: it must never hold a formula that reads its
 # own address (a circular reference), and the validation list below is what

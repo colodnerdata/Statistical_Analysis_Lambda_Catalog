@@ -1,8 +1,9 @@
 """The committed static-sheet template carries the text its writers produce.
 
-**The failure this closes.** Three modules author the sheets in
+**The failure this closes.** Four modules author the sheets in
 `templates/static_sheets.xlsx` — `write_sheet_regression_instructions.py`,
-`write_sheet_modeling_concepts.py`, `write_sheet_diagnostic_guide.py`. Every
+`write_sheet_modeling_concepts.py`, `write_sheet_diagnostic_guide.py`,
+`write_sheet_comparison_guide.py`. Every
 artifact build copies the *already-baked* sheet out of that template
 (`workbook_helpers.copy_static_sheet`); nothing at build time executes the
 writers. So editing one of those modules changes nothing any build can see until
@@ -23,7 +24,7 @@ source, is invisible here), nor to check layout (rows, columns, merges, widths).
 Those need the Excel-machine path.
 
 **How the literals are collected, and why it is not "every string constant".**
-The three modules write cell text three ways, and only those three paths are
+The four modules write cell text three ways, and only those three paths are
 read — which is what keeps docstrings, log messages and other prose out, with no
 filtering rule of their own:
 
@@ -31,7 +32,7 @@ filtering rule of their own:
   (pinned per module in ``_CONTENT_CONSTANTS``, with a dead-entry guard);
 * a helper call — `_heading` / `_subheading` / `_table_header_row` / `_row` —
   whose *third* argument carries the text: a single string for the two heading
-  helpers, a list of strings for the two row helpers. Every helper in all three
+  helpers, a list of strings for the two row helpers. Every helper in all four
   modules puts the text in that position, which is what lets one rule cover them;
 * a direct assignment — `sheet.range(...).value = "…"`.
 
@@ -92,6 +93,11 @@ _CONTENT_CONSTANTS: dict[str, tuple[str, ...]] = {
     "write_sheet_modeling_concepts.py": ("_FEATURES", "_PLANNED_FEATURES"),
     "write_sheet_diagnostic_guide.py": (
         "_TIER1", "_TIER2", "_THRESHOLDS", "_GUIDANCE",
+    ),
+    "write_sheet_comparison_guide.py": (
+        "_PREFLIGHT", "_CHANGE_LEDGER", "_QUESTIONS", "_LADDER", "_STABILITY",
+        "_ASSUMPTION_EVIDENCE", "_INVALID_MOVES", "_SPEC_STEPS", "_ABSENCES",
+        "_SIBLINGS",
     ),
 }
 
@@ -336,18 +342,62 @@ def _template_sheet_parts() -> dict[str, str]:
     return parts
 
 
+def _shared_strings() -> list[str]:
+    """The workbook's shared-string table, normalised, or ``[]`` when absent.
+
+    Excel chooses per save whether cell text goes inline in the worksheet part
+    (``t="inlineStr"``) or into one ``sharedStrings.xml`` table the cells index
+    (``t="s"`` → ``<v>n</v>``). Which one it picks is a size heuristic, not
+    something a writer controls: a small template workbook and the full
+    ``dist/`` artifact are stored in different forms, and either form can
+    change with the sheet count. Reading only the inline form silently finds
+    *no* text at all and reports every literal as stale, so both are read.
+    """
+    with zipfile.ZipFile(TEMPLATE_PATH) as archive:
+        try:
+            raw = archive.read("xl/sharedStrings.xml")
+        except KeyError:
+            return []
+    root = etree.fromstring(raw)
+    return [
+        _norm("".join(t.text or "" for t in entry.iter() if t.tag.endswith("}t")))
+        for entry in root.iter()
+        if entry.tag.endswith("}si")
+    ]
+
+
 def _cell_texts(sheet_part: str) -> set[str]:
     """Every string stored in one worksheet, normalised.
 
-    The template has no ``sharedStrings.xml``: xlwings writes cell text inline
-    (``t="inlineStr"`` → ``<is><t>``), so the text is in the worksheet part. Each
-    ``is``/``si`` is joined across its runs — a rich-text cell splits one value
-    into several ``<t>`` elements — and every individual ``<t>`` is also kept,
-    so a value split by runs still matches either way.
+    Handles both storage forms (see ``_shared_strings``). Each ``is``/``si`` is
+    joined across its runs — a rich-text cell splits one value into several
+    ``<t>`` elements — and every individual ``<t>`` is also kept, so a value
+    split by runs still matches either way.
     """
+    shared = _shared_strings()
     with zipfile.ZipFile(TEMPLATE_PATH) as archive:
         root = etree.fromstring(archive.read(sheet_part))
     texts: set[str] = set()
+    for cell in root.iter():
+        if not cell.tag.endswith("}c"):
+            continue
+        kind = cell.get("t")
+        if kind == "s":
+            value = next((c for c in cell if c.tag.endswith("}v")), None)
+            if value is not None and (value.text or "").strip().isdigit():
+                index = int(value.text)
+                if 0 <= index < len(shared):
+                    texts.add(shared[index])
+        elif kind == "inlineStr":
+            for entry in cell:
+                if entry.tag.endswith("}is"):
+                    texts.add(
+                        _norm(
+                            "".join(
+                                t.text or "" for t in entry.iter() if t.tag.endswith("}t")
+                            )
+                        )
+                    )
     for element in root.iter():
         if element.tag.endswith(("}is", "}si")):
             texts.add(_norm("".join(t.text or "" for t in element.iter() if t.tag.endswith("}t"))))
@@ -394,8 +444,8 @@ def test_every_static_literal_reaches_the_committed_template(module_name: str) -
     )
 
 
-def test_the_template_carries_all_three_static_sheets() -> None:
-    """The template is the only source of these sheets, so all three must be in it."""
+def test_the_template_carries_every_static_sheet() -> None:
+    """The template is the only source of these sheets, so every writer must be in it."""
     parts = _template_sheet_parts()
     expected = {
         _module_literals(ROOT_DIR / "lambda_catalog" / name, constants).sheet_name

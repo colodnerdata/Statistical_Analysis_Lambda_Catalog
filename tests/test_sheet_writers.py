@@ -31,6 +31,7 @@ from lambda_catalog.spec_layout import _CLOSURE_SCOPE
 from lambda_catalog.write_spec_block import _set_sheet_scoped_names
 from lambda_catalog.write_sheet_regression import (
     _A_BACK_TRANSFORM_METHOD,
+    _A_UNIT_GOF_TRIPLET,
     _BACK_TRANSFORM_METHODS,
     _C_AA,
     _C_AB,
@@ -1401,7 +1402,9 @@ def test_setup_local_names_registers_comparison_anchor_headline_and_formula() ->
     """v3.3: Comparison_Anchor, Comparison_Headline_GoF, Comparison_Model_Formula
     are sheet-scoped names that the v3.4 Model Comparison sheet reads from.
     Comparison_Anchor → AF3 (the response-name readout), Comparison_Headline_GoF
-    → AH7:AH9 (the three unit-space GoF statistics), Comparison_Model_Formula
+    → the three unit-space GoF statistics as one range, built from
+    ``_A_UNIT_GOF_TRIPLET`` rather than spelled out — the anchor cell and the
+    three rows below it, Comparison_Model_Formula
     → the Model Formula readout in the §4b band (it moved off AB2; v3.4 reads
     the NAME, which is why the move costs its consumer nothing).
     """
@@ -1412,7 +1415,7 @@ def test_setup_local_names_registers_comparison_anchor_headline_and_formula() ->
         "='Regression'!$AF$3"
     )
     assert sheet.api.Names.by_short_name("Comparison_Headline_GoF").RefersTo == (
-        "='Regression'!$AH$7:$AH$9"
+        f"='Regression'!{_A_UNIT_GOF_TRIPLET}"
     )
     assert sheet.api.Names.by_short_name("Comparison_Model_Formula").RefersTo == (
         f"='Regression'!${col_letter(_C_MODEL_FORMULA)}${_ROW_MODEL_FORMULA}"

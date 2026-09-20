@@ -84,6 +84,7 @@ _SHEET_NAME_REGRESSION_INSTRUCTIONS = "Regression Instructions"
 _SHEET_NAME_MODELING_CONCEPTS = "Modeling Concepts"
 _SHEET_NAME_REGRESSION = "Regression"
 _SHEET_NAME_DIAGNOSTIC_GUIDE = "Diagnostic Guide"
+_SHEET_NAME_MODEL_COMPARISON_GUIDE = "Model Comparison Guide"
 _SHEET_NAME_UNIVARIATE = UNIVARIATE_SHEET_NAME
 
 # Dataset profiles: maps the --regression-dataset choice to both the
@@ -210,14 +211,15 @@ def _reorder_and_style_sheet_tabs(workbook: xw.Book) -> None:
 
     Tab order (left to right):
     Regression, Regression Instructions, Modeling Concepts, Diagnostic
-    Guide, Univariate, LAMBDA_functions, Version History, Production Lots,
-    Life Expectancy Data, Mileage Data.
+    Guide, Model Comparison Guide, Univariate, LAMBDA_functions, Version
+    History, Production Lots, Life Expectancy Data, Mileage Data.
     """
     ordered_front = [
         _SHEET_NAME_REGRESSION,
         _SHEET_NAME_REGRESSION_INSTRUCTIONS,
         _SHEET_NAME_MODELING_CONCEPTS,
         _SHEET_NAME_DIAGNOSTIC_GUIDE,
+        _SHEET_NAME_MODEL_COMPARISON_GUIDE,
         _SHEET_NAME_UNIVARIATE,
         _SHEET_NAME_LAMBDA_FUNCTIONS,
         _SHEET_NAME_VERSION_HISTORY,
@@ -245,6 +247,7 @@ def _reorder_and_style_sheet_tabs(workbook: xw.Book) -> None:
         _SHEET_NAME_MODELING_CONCEPTS: SUBHDR_COLOR,
         _SHEET_NAME_REGRESSION: SUBHDR_COLOR,
         _SHEET_NAME_DIAGNOSTIC_GUIDE: SUBHDR_COLOR,
+        _SHEET_NAME_MODEL_COMPARISON_GUIDE: SUBHDR_COLOR,
     }
 
     present = _sheet_names(workbook)
@@ -376,6 +379,7 @@ def build_production_workbook(
                     _SHEET_NAME_REGRESSION_INSTRUCTIONS,
                     _SHEET_NAME_MODELING_CONCEPTS,
                     _SHEET_NAME_DIAGNOSTIC_GUIDE,
+                    _SHEET_NAME_MODEL_COMPARISON_GUIDE,
                 ),
             )
             write_version_history_sheet(workbook)
@@ -640,6 +644,7 @@ def _build_and_verify(args: argparse.Namespace, workbook_path: Path) -> int:
     print("Sheet updated: Regression Instructions")
     print("Sheet updated: Modeling Concepts")
     print("Sheet updated: Diagnostic Guide")
+    print("Sheet updated: Model Comparison Guide")
     print("Sheet updated: Version History")
     print("Sheet updated: Regression")
     print("Sheet updated: Univariate")

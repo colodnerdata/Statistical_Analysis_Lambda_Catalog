@@ -56,6 +56,7 @@ generated/workbook-tour
 
 generated/modeling-concepts
 generated/diagnostic-guide
+generated/model-comparison-guide
 generated/spec-block
 generated/regression-instructions
 ```

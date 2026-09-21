@@ -140,6 +140,7 @@ def test_calculate_verification_sheets_calculates_every_required_sheet() -> None
                 "Mileage Data",
                 "Production Lots",
                 "Regression",
+                "Model Comparison",
                 "Univariate",
             ]
         ),
@@ -156,6 +157,7 @@ def test_calculate_verification_sheets_calculates_every_required_sheet() -> None
         "Mileage Data",
         "Production Lots",
         "Regression",
+        "Model Comparison",
         "Univariate",
     ]
 

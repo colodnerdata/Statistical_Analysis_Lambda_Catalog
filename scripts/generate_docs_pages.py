@@ -640,7 +640,7 @@ def write_workbook_tour() -> None:
     m = re.search(r"ordered_front = \[(.*?)\]", src, flags=re.S)
     assert m, "ordered_front list not found in build_production.py"
     consts = re.findall(r"_SHEET_NAME_([A-Z_]+)", m.group(1))
-    assert len(consts) == 11, f"expected 11 sheet names, found {len(consts)}"
+    assert len(consts) == 12, f"expected 12 sheet names, found {len(consts)}"
     names = []
     for cname in consts:
         attr = f"_SHEET_NAME_{cname}"
@@ -651,7 +651,7 @@ def write_workbook_tour() -> None:
     lines = [
         "# The workbook, tab by tab",
         "",
-        "The shipped `dist/Lambda_Library.xlsx` presents eleven tabs in this",
+        "The shipped `dist/Lambda_Library.xlsx` presents twelve tabs in this",
         "order (extracted from `scripts/build_production.py` at generation",
         "time):",
         "",
@@ -663,6 +663,10 @@ def write_workbook_tour() -> None:
         "- **Regression** — the working sheet: MODEL SPECIFICATION (A–O),",
         "  Regression Outputs, Prediction Outputs, Residual Output, and the",
         "  seven diagnostic charts.",
+        "- **Model Comparison** — one row per fitted model, read from the other",
+        "  model sheets: a goodness-of-fit table and a prediction comparison,",
+        "  gated per row so two models are only compared on statistics that",
+        "  actually bear comparing.",
         "- **Regression Instructions / Modeling Concepts / Diagnostic Guide /",
         "  Model Comparison Guide** — the built-in manual (each has a generated",
         "  page in this site).",

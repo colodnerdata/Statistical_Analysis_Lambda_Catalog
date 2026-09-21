@@ -30,6 +30,7 @@ from lambda_catalog.workbook_builder import (
     XL_CALCULATION_MANUAL,
     XL_CALCULATION_SEMIAUTOMATIC,
 )
+from lambda_catalog.write_sheet_comparison import SHEET_NAME as COMPARISON_SHEET_NAME
 from lambda_catalog.write_sheet_csv_dataset import (
     LIFE_EXPECTANCY,
     MILEAGE,
@@ -39,11 +40,16 @@ from lambda_catalog.write_sheet_univariate import UNIVARIATE_SHEET_NAME
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 _MAX_REPORTED_QC_FAILURES = 200
+# Every sheet holding values verify compares or reads. The Model Comparison
+# sheet belongs here for the same reason the Regression sheet does: it holds no
+# data of its own, only readers of other sheets' COMPUTED values, so verifying
+# it against a stale tree would compare one stale number with another and pass.
 _VERIFY_CALC_SHEET_NAMES = (
     LIFE_EXPECTANCY.sheet_name,
     MILEAGE.sheet_name,
     PRODUCTION_LOTS.sheet_name,
     "Regression",
+    COMPARISON_SHEET_NAME,
     "Univariate",
 )
 
@@ -88,7 +94,14 @@ def _report_qc_failure(failures: list[str], message: str) -> None:
         print("ERROR Additional QC mismatches suppressed.", flush=True)
 
 
-_OPTIONAL_VERIFY_SHEET_NAMES = ("Univariate",)
+# Sheets a verify run may legitimately not find. Univariate is absent from a
+# test-model artifact; Model Comparison is absent from one built with a case
+# filter that excludes every curated registry row (the writer skips the sheet
+# rather than leave an anchor pointing at a sheet that was never written).
+# A missing sheet here is a warning, not a QC failure — but every other sheet
+# named in _VERIFY_CALC_SHEET_NAMES is still required, so a build that damaged
+# the Regression sheet still hard-fails rather than quietly warning.
+_OPTIONAL_VERIFY_SHEET_NAMES = ("Univariate", COMPARISON_SHEET_NAME)
 
 
 def _univariate_verification_action(

@@ -92,7 +92,7 @@ the reunification rationale is in
 | v3.1 | Interaction wiring — the constructor actually builds the interaction columns v3.0 stage 3 inserted | No | **Shipped 2026-08-03** (workbook 3.1.0) — MINOR, and exactly the follow-on the reserved columns were for: three LAMBDA definitions and one audit formula changed, and no column moved. `Predictor_Columns()` and its two twins read M/N and emit the pairwise combination (1 column for Continuous × Continuous, L−1 for Continuous × Categorical, (L₁−1)(L₂−1) for Categorical × Categorical); the Design Columns audit gained its `k(row)×k(operand)` term in the same edit, off the same width helper. A spec with M and N blank computes identically to 3.0.0 |
 | v3.2 | Full materialization of the design matrix | No | Delivered — MINOR. Stage 3 established the terminal zone and its width guard, and the spills that fill it — `Design_Columns()` into the design-matrix zone, `Sample_Include()` into its own — landed in the code, replacing both `"reserved"` placeholders. The ~30 engine call sites are now repointed at those spills via the `Fit_Design_Columns()` / `Fit_Sample_Include()` readers (sheet zones and the eight catalog LAMBDA bodies that called the constructors), the performance win is banked (recalculate 21.8s → 10.5s, cell-by-cell spec verifier green), and the artifact rebuild carries it to users. The public `Sample_Include` / `Design_Columns` names are themselves readers over their materialized spills — the spill-source cells call the private `Sample_Include_Calc` / `Design_Columns_Calc` leaves, and `Sample_Include(FALSE)` delegates to `Sample_Include_Calc(FALSE)` — so the producing cell no longer self-references |
 | v3.3 | Transforms remainder — unit-space dispatcher, Duan back-transformation, the model formula label | No | **SHIPPED** — MINOR. *Planned as the second half of v2.2*, moved after v3.0 with the rest of the feature train; the column-G `Log` wiring already shipped at v2.2. The **standalone transform library** was planned inside this milestone and now ships as **v3.9** — it is the ladder's most expensive item to test, and nothing else waits on it |
-| v3.4 | Model Comparison Sheet | No | Planned — MINOR, a *nice-to-have*. *Planned as v2.3.* Read-only across finished Regression sheets; ships after the Transforms remainder (v3.3) so its comparisons are unit-space-honest from day one. **Test scale: additive (~1×)** — it reads models the suite already has |
+| v3.4 | Model Comparison Sheet | No | **SHIPPED** (3.4.0, 2026-09-20) — MINOR, a *nice-to-have*. *Planned as v2.3.* Read-only across finished Regression sheets; shipped after the Transforms remainder (v3.3) so its comparisons are unit-space-honest from day one. **Test scale: additive (~1×)** — it reads models the suite already has |
 | v3.5 | `Cluster` Role (clustered-robust SEs) | No | Planned — MINOR. *Planned as v2.7+; promoted out of the unordered bucket by the [ladder reordering](#ladder-order-from-v34-on-regression-work-first-then-test-suite-growth).* Forward-wired from `Serial_Correlation_Group()`'s dormant branch. **Test scale: near-additive** — a variance-estimator variant over a few existing models |
 | v3.6 | `Time` Role + lag/difference semantics | No | Planned — MINOR. *Planned as v2.7+; promoted out of the unordered bucket.* Partially forward-wired via the v2.1 Sequence axis. **The sheet half moved to v3.12** — this milestone is the engine work (the Role, cross-sheet `Lag_By` / `Difference_By` time semantics, the calendar-dated dataset), which is Regression-track and belongs here; the worksheet that consumes it is a new analysis surface and ships with the trailing block. **Test scale: near-additive — and it closes a coverage gap that exists today**: its calendar-dated dataset is what finally makes the Sequence calendar-signature verdict testable |
 | v3.7 | `Weight` Role (WLS) | No | Planned — MINOR. *Planned as v2.6; claimed as v3.7 all along, though it reaches the slot by a different route.* User-supplied weights as the first stage; variance-driver-derived weights and FGLS as later follow-ons. The `Weight` Role, its cardinality rule, and the three-stage scope stand; the **implementation mechanism changed at v3.0** — √w scaling in the constructor, not a threaded `[Weights]` argument. Shipping after v3.0 is what makes that the first implementation rather than a rewrite. **Test scale: ~2×** over a representative subset |
@@ -808,7 +808,7 @@ library, now [v3.9](#v39--standalone-data-transformation-library--partially-deli
 
 ---
 
-## v3.4 — Model Comparison Sheet — PLANNED
+## v3.4 — Model Comparison Sheet — SHIPPED (3.4.0)
 
 *Planned as v2.3. Moved after v3.0 when the feature train was resequenced — see the [ladder rationale](#versioning--release-conventions).*
 
@@ -819,31 +819,47 @@ display — the Model Comparison sheet is what happens when a second sheet is al
 to *read* it. No new modeling capability is added; this is purely a cross-sheet
 aggregation and navigation layer, which is why it is a MINOR.
 
-- **Model registry** — one row per registered Regression sheet, hyperlink
-  + display text from `Model_Formula_String(anchor_cell)`, link
-  target a fixed anchor cell inside the spec block.
-- **GoF table** — R², Adjusted R², AIC, AICc, BIC, PRESS, LOOCV,
-  F-statistic, F p-value, n, k. References the **unit-space
-  headline** statistic from v3.3 — a logged model and a level
-  model line up as comparable quantities by construction.
-- **Shared prediction inputs** — the Comparison sheet is the source;
-  individual Regression sheets pull from it via `XLOOKUP` keyed on
-  spec name, so one shared "what-if" scenario drives every
-  registered model simultaneously.
-- **Interface contract, RESOLVED** — three sheet-scoped named ranges
-  per Regression sheet (`Comparison_Anchor`,
-  `Comparison_Headline_GoF`, `Comparison_Prediction_Output`) become
-  part of the library's public interface the moment they ship.
-  The changelog entry for v3.4.0 must name them explicitly so
-  the commitment is discoverable.
+Shipped as the sheet named **Model Comparison**, one row per registered model in
+four blocks — registry, unit-space statistics, fit-space statistics, prediction
+comparison — with a gate per block that says whether the rows in it are actually
+comparable.
+
+- **Model registry** — one row per registered model, hyperlink + display text
+  derived from the anchor, the assembled formula string, the model's identity
+  cells, and four gate flags. The anchor is a **sheet-scoped name** per row
+  (`Comp_Anchor_<n>`), not a cell: `OFFSET` preserves a *reference* argument's
+  sheet context but dereferences a cell, so a cell holding a cross-sheet
+  reference would silently offset on the wrong sheet.
+- **GoF table** — split in two by what a response transform does to it. The
+  **unit-space** block (R², adjusted R², RMSE in original units) reads the
+  `Comparison_Headline_GoF` triplet, so a logged model and a level model line up
+  as comparable quantities by construction; the **fit-space** block (F,
+  Significance F, R², adjusted R², standard error, PRESS, PRESS R², AIC, BIC,
+  AICc) is comparable only within one comparison set, because a probe showed the
+  log-Jacobian moves F and every information criterion.
+- **Prediction comparison** — each model's own point estimate and CI/PI bounds in
+  original units, plus its own input band, with a flag when the inputs differ from
+  the reference row.
+- **Shared prediction inputs — DEFERRED, with the reverse wiring.** The
+  prediction machinery is sheet-scoped and cannot be invoked cross-sheet, so
+  without repointing the Regression sheets' own input bands a typed shared-input
+  row could compute nothing for any model. It would be an input that silently does
+  nothing, so it does not ship. See [DECISIONS.md § v3.4](DECISIONS.md).
+- **Interface contract, RESOLVED** — four sheet-scoped named ranges per
+  Regression sheet (`Comparison_Anchor`, `Comparison_Headline_GoF`,
+  `Comparison_Model_Formula`, `Comparison_Prediction_Output`) are part of the
+  library's public interface. v3.3 shipped three of the four;
+  `Comparison_Prediction_Output` completes the set at v3.4. The 3.4.0 changelog
+  entry names them explicitly so the commitment is discoverable.
 
 **Test assets — additive (~1×).** No new data and no new models: the sheet reads
-models the suite already has (M1, L2, P2 supply ≥3 registered models with shared
-prediction inputs). One **mismatched-predictor-set pair** (M1 vs M14) is added to
-exercise the `XLOOKUP [if_not_found]` open question. See
+models the suite already has. The test-model artifact registers a curated subset
+(`M01`, `M05`, `M14`, `M15`, `L02`, `L03`) that exercises the set, space and
+inputs gates; the method gate needs a same-response pair, which the Excel-gated
+integration test supplies by pointing its reference row at `L02` instead. See
 [docs/MODEL_TESTING_ASSETS.md § 2 item 1](MODEL_TESTING_ASSETS.md#section-2--assets-for-roadmap-features-in-ladder-order).
 
-Design rationale and resolved decisions: [DECISIONS.md § v2.3](DECISIONS.md#v23--model-comparison-sheet),
+Design rationale and resolved decisions: [DECISIONS.md § v3.4](DECISIONS.md),
 recorded there under the original milestone number.
 
 ---
@@ -1169,8 +1185,8 @@ land here as one bullet out of six.
 - **Interface contract** — the `TSChart`-prefixed sheet-scoped named ranges the
   charts read (following the `RegChart` precedent in `_setup_local_names`) and
   the series-constructor closures become part of the public interface the moment
-  they ship. The v3.12.0 changelog entry must name them, exactly as v3.4's
-  entry must name its three.
+  they ship. The v3.12.0 changelog entry must name them, exactly as 3.4.0's
+  entry names its four.
 
 **Open design questions:**
 

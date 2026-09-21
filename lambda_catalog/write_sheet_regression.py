@@ -223,6 +223,7 @@ from .regression_layout import (  # noqa: F401  — re-exported for importers
     _A_FE_GROUP,
     _A_MEAN_LEVERAGE,
     _A_OBSERVATIONS,
+    _A_PRED_OUTPUT_BAND,
     _A_PRESS,
     _A_PRESS_R_SQUARED,
     _A_QQ_CORRELATION,
@@ -916,7 +917,10 @@ def _setup_local_names(
     # is the three unit-space goodness-of-fit numbers (R², adjusted R²,
     # RMSE in original units) so the comparison sheet can rank alternatives
     # without rewriting the same formulas; Comparison_Model_Formula is the
-    # assembled formula string used as the comparison sheet's per-row label.
+    # assembled formula string used as the comparison sheet's per-row label;
+    # Comparison_Prediction_Output is the Original Units (AL) prediction
+    # block — the fourth name the v3.3 interface always promised, and the one
+    # surface that makes two differently-transformed models commensurable.
     for _name, _refers_to, _comment in [
         (
             "Comparison_Anchor",
@@ -932,6 +936,11 @@ def _setup_local_names(
             "Comparison_Model_Formula",
             f"={sname}!{_abs_ref(_ROW_MODEL_FORMULA, _C_MODEL_FORMULA)}",
             "Assembled model formula string (response ~ predictors [| FE]) — feeds the v3.4 Model Comparison per-row label",
+        ),
+        (
+            "Comparison_Prediction_Output",
+            f"={sname}!{_A_PRED_OUTPUT_BAND}",
+            "Original-units prediction block (AL): point estimate + CI/PI bounds, rows 5-7 blank — feeds the v3.4 Model Comparison prediction row",
         ),
     ]:
         drop_local_name(sheet, _name)

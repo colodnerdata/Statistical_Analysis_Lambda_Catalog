@@ -268,6 +268,62 @@ _VERSIONS = [
             "stays at 2.0.0 — the unit-space machinery is Regression-only."
         ),
     },
+    {
+        "version": "3.4.0",
+        "date": "2026-09-20",
+        "breaking": "No",
+        "summary": (
+            "Model Comparison — the cross-sheet aggregation layer the v3.3 "
+            "reading surface was built for. A new Model Comparison sheet reads "
+            "the other model sheets and puts one model per row, in four blocks: "
+            "a registry (the target sheet and a link to it, the anchor address "
+            "being read, the assembled model formula, the response as fitted, "
+            "the DECLARED response variable, response space, back-transform "
+            "method, n and k), a unit-space statistics block, a fit-space "
+            "statistics block, and a prediction block. A row reads its target "
+            "through three new workbook-scoped catalog functions — "
+            "Model_Formula_String(anchor), Comparison_Field(anchor,i) and "
+            "Comparison_Flag_Status(flags,what) — each of which takes a "
+            "REFERENCE to the target's response-label cell and OFFSETs from it, "
+            "so nothing builds an address out of a sheet name (CELL is used "
+            "once, as a label for the row's link, never as a reference). The "
+            "reference lives in a sheet-scoped name, Comp_Anchor_<row>, so "
+            "adding a model is one Name Manager edit rather than a formula "
+            "rewrite. A mis-pointed anchor is loud rather than silently wrong: "
+            "the readers probe the target's A1 for the literal 'MODEL "
+            "SPECIFICATION' that every Regression-shaped sheet carries there, "
+            "and return NA() when it is absent, so a row aimed at a non-model "
+            "sheet is blank instead of quoting an unrelated cell. Comparisons "
+            "are GATED rather than asserted. Four per-row flags — Same Set? "
+            "(the same declared response variable fitted to the same n), Same "
+            "Space? (the same response space), Same Method? (the same "
+            "back-transformation) and Same Inputs? (the same prediction point) "
+            "— shade exactly the blocks a mismatch invalidates, with a row-2 "
+            "verdict counting how many registered rows fall outside each. The "
+            "organising distinction is what a statistic is measured against: "
+            "the fit-space block (F, significance F, R², adjusted R², standard "
+            "error, AIC, BIC, AICc, PRESS, PRESS R²) is comparable only within "
+            "one response space, since a Log fit's R² and F are computed "
+            "against a different left-hand side and its AIC carries the "
+            "log-Jacobian; the unit-space block and the predictions are "
+            "expressed in response units, so they stay readable across a "
+            "transform change but move with the back-transform method, which "
+            "leaves the fit itself untouched. The registry keys its set test on "
+            "the response variable as DECLARED in the target's spec block "
+            "rather than the fitted label, so a Level fit and a Log fit of one "
+            "response count as the same set — which is the comparison the "
+            "unit-space block exists to serve. Comparison_Prediction_Output "
+            "completes the four-name interface v3.3 promised. This release also "
+            "carries the Regression sheet's header-band change: every zone's "
+            "column headers now sit on row 3 above a three-row frozen pane "
+            "(freeze at A4 — a true frozen pane, not a split), and the spec "
+            "block's optional columns collapse to a nested E:Q sub-group so a "
+            "regular MLR sees only Variable, Role, Include and Type. The "
+            "unified workbook now ships twelve sheets. Library version moves "
+            "from 3.3.0 to 3.4.0; Univariate stays at 2.0.0. The 3.4.0 that the "
+            "abandoned pull request #236 carried is superseded by this entry."
+        ),
+    },
 ]
 
 

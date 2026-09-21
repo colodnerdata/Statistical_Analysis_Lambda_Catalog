@@ -1,7 +1,7 @@
 <!-- GENERATED FILE — do not edit. Regenerate: uv run --group docs poe docs-generate -->
 # LAMBDA function reference
 
-Every catalog entry in `lambda_functions.json` — 152
+Every catalog entry in `lambda_functions.json` — 155
 functions. Workbook-scoped names work on any sheet; sheet-scoped names
 (marked) are defined per-sheet.
 
@@ -722,6 +722,111 @@ Named wrapper for CHOOSECOLS: picks non-contiguous predictor columns by index. R
 ```excel
 =LAMBDA(table, col_nums,
   CHOOSECOLS(table, col_nums)
+)
+```
+
+## `Comparison_Field`
+
+**Reads one statistic — R squared, AIC, a prediction bound, and so on — out of another model sheet, given a reference to that sheet's response label cell and a number saying which statistic.**
+
+Arguments:
+
+- **anchor** — A REFERENCE to the target Regression sheet's response readout cell — the cell that sheet's Comparison_Anchor names, i.e. 'My Sheet'!$AF$3. Pass the reference itself, never a cell that contains one.
+- **i** — Which statistic to return, 1-24. The position table is in the description; an index outside 1-24 returns #N/A rather than erroring.
+
+Comparison_Field is the cross-sheet statistic reader behind the v3.4 Model Comparison sheet: one anchor reference plus an index, and it returns that statistic from whichever Regression sheet the anchor names. A registry row therefore needs one reference per model rather than one per cell. Indices run 1-24; anything outside that range returns #N/A rather than erroring.
+
+The position table, in order:
+
+1 Response name (the response label) · 2 Response space ("Original units (back-transformed)" or "Same as fit space") · 3 Back-transform method (Duan / Naive) · 4 Observations n · 5 Design columns k · 6 F statistic · 7 Significance F · 8 Unit-space R² · 9 Unit-space adjusted R² · 10 Unit-space RMSE · 11 R² · 12 Adjusted R² · 13 Standard error · 14 PRESS · 15 PRESS R² · 16 AIC · 17 BIC · 18 AICc · 19 Point estimate (original units) · 20 CI lower · 21 CI upper · 22 PI lower · 23 PI upper · 24 Response variable (the DECLARED name, before any transform — “MPG” whether the sheet fits MPG or Ln(MPG)).
+
+Why an index rather than one function per statistic: the offsets are layout knowledge that has to live exactly once, and a JSON body is the one place no import can reach. A single table is one thing to pin — a test recomputes every (row, column) pair from the regression_layout constants that name those cells and fails the suite when a column insertion moves one — where twenty-four functions would be twenty-four things to keep in step.
+
+Which fields are readable beside each other is a property of what each one is measured against, and the comparison sheet gates its columns on exactly that split:
+
+* 4, 5 and 24 (n, k, the declared response variable) are the identity facts a comparison set is built from. A different response variable or a different n means the two rows answer different questions; k is a spec fact that nothing invalidates.
+* 2 and 3 (response space, back-transform method) are the two context facts that decide which of the statistics below are on the same scale.
+* 6, 7 and 11-18 (F, significance F, R², adjusted R², standard error, PRESS, PRESS R², AIC, BIC, AICc) are measured against the FITTED, possibly transformed response. A Log fit's AIC and a level fit's AIC are not on the same scale — the log-Jacobian alone moves this workbook's Life Expectancy AIC by tens of thousands — and F is a test of the fitted response, so a Log fit's F tests a different hypothesis from a level fit's. Comparable only within one response space.
+* 8-10 (unit-space R², adjusted R², RMSE) and 19-23 (the prediction and its bounds) are expressed in the response's own units. They are NOT invariant to a change of response transform — the fitted function itself changes, so the numbers move — but they stay interpretable, because a difference between two rows is a real difference in how each model predicts the actual response. What they do not survive is a change of back-transform METHOD, which moves them while leaving the underlying fit identical.
+
+Field 24 exists because field 1 is the response as FITTED: it reads “Ln(MPG)” for a logged fit and “MPG” for a level fit of the same data, so comparing the two labels would call one response two. The set test reads the declared name instead.
+
+The anchor must be a REFERENCE — OFFSET reads the reference argument's own location and does not dereference, so a cell holding a reference offsets from that cell instead. The same "MODEL SPECIFICATION" guard as Model_Formula_String turns a mis-pointed anchor into #N/A.
+
+Returns: The selected statistic from the target Regression sheet; #N/A when i is outside 1-24 or the anchor does not point at a Regression sheet.
+
+One statistic (index 1-24) from another Regression sheet. Pass a reference to that sheet's Comparison_Anchor; #N/A on a bad anchor or an index outside 1-24.
+
+```excel
+=LAMBDA(anchor,i,
+    LET(
+        ok, IFERROR(OFFSET(anchor,-2,-31) = "MODEL SPECIFICATION", FALSE),
+        IF(AND(ok, anchor <> ""),
+            IFERROR(CHOOSE(i,
+                OFFSET(anchor,0,0),
+                OFFSET(anchor,7,2),
+                OFFSET(anchor,2,2),
+                OFFSET(anchor,6,-4),
+                OFFSET(anchor,-2,-17),
+                OFFSET(anchor,13,-1),
+                OFFSET(anchor,13,0),
+                OFFSET(anchor,4,2),
+                OFFSET(anchor,5,2),
+                OFFSET(anchor,6,2),
+                OFFSET(anchor,3,-4),
+                OFFSET(anchor,4,-4),
+                OFFSET(anchor,5,-4),
+                OFFSET(anchor,2,-1),
+                OFFSET(anchor,3,-1),
+                OFFSET(anchor,5,-1),
+                OFFSET(anchor,6,-1),
+                OFFSET(anchor,7,-1),
+                OFFSET(anchor,1,6),
+                OFFSET(anchor,5,6),
+                OFFSET(anchor,6,6),
+                OFFSET(anchor,7,6),
+                OFFSET(anchor,8,6),
+                INDEX(OFFSET(anchor,1,-31,11,1),XMATCH("Response (y)",OFFSET(anchor,1,-30,11,1)))
+            ), NA()),
+            NA()
+        )
+    )
+)
+```
+
+## `Comparison_Flag_Status`
+
+**Writes the one-line verdict above a comparison-flag column: how many registered rows agree with the first, and how many do not.**
+
+Arguments:
+
+- **flags** — The comparison-flag column as a range — TRUE where the row agrees with the reference row, FALSE where it does not, and blank on an unregistered row. Blank rows are counted as neither, so a template row never inflates the total.
+- **what** — The noun naming the axis being compared, as it should read in the verdict — "comparison set" or "response space".
+
+Comparison_Flag_Status is the row-2 verdict under a comparison-flag column on the Model Comparison sheet. Three states, and the empty one is deliberate: with no row registered there is nothing to compare, so the cell stays blank rather than announcing a vacuous agreement — the same blank-when-legal grammar the Regression sheet's status row uses.
+
+Counting registered rows as COUNTIF(TRUE)+COUNTIF(FALSE) rather than COUNTA is what lets unregistered template rows sit inside the band. Those rows carry "" (every one of their formulas is guarded), COUNTA would count them, and the verdict would then report agreements between models that do not exist. A blank row is not a row that agrees.
+
+"Outside" is counted only for FALSE, never for "", so the two states stay distinct: a row that cannot be read yet is not a row that disagrees.
+
+ONE function serves all three status cells on the sheet. The counting mechanics — how a row counts, what empty means — are identical for every axis; only the noun differs, so the noun is the argument and the flag column travels with it. A sheet-scoped LAMBDA per axis would triplicate the counting rule and let the three drift apart.
+
+Returns: A one-line verdict over the flag column: "all N registered rows share one <what>", "<k> of N registered rows differ in <what>", or "" when no row is registered.
+
+Row-2 verdict over a comparison-flag column: "all N registered rows share one <what>", "<k> of N ... differ in <what>", or "" when nothing is registered. Blank rows are not counted.
+
+```excel
+=LAMBDA(flags,what,
+    LET(
+        registered, COUNTIF(flags,TRUE)+COUNTIF(flags,FALSE),
+        outside,    COUNTIF(flags,FALSE),
+        IF(registered=0,"",
+            IF(outside=0,
+                "all "&registered&" registered rows share one "&what,
+                outside&" of "&registered&" registered rows differ in "&what
+            )
+        )
+    )
 )
 ```
 
@@ -2563,6 +2668,36 @@ The saved spec rendered as "<response> ~ 1 + <predictors> [| <FE>]". Response an
         fe_count,   SUMPRODUCT(N(TAKE(Spec_Role, n_c) = "Fixed Effects")),
         fe_name,    IFERROR(INDEX(TOROW(Header_Names), XMATCH("Fixed Effects", TAKE(Spec_Role, n_c))), "FE"),
         response & " ~ " & intercept & predictors & IF(fe_count > 0, " | " & fe_name, "")
+    )
+)
+```
+
+## `Model_Formula_String`
+
+**Pulls another model sheet's one-line formula into this cell. Point it at that sheet's response label cell and it hands back the model that sheet is fitting.**
+
+Arguments:
+
+- **anchor** — A REFERENCE to the target Regression sheet's response readout cell — the cell that sheet's Comparison_Anchor names, i.e. 'My Sheet'!$AF$3. Pass the reference itself, never a cell that contains one.
+
+Model_Formula_String is the cross-sheet reader for the v3.4 Model Comparison sheet: given a reference to another Regression sheet's response readout, it returns that sheet's own model formula string, so a registry row can label a model it does not contain.
+
+What it reads is a cell, not an assembly. That sheet's Comparison_Model_Formula already holds the string — Model_Formula() assembled it there, from that sheet's spec, where every name it needs is in scope. This function therefore re-derives nothing: it offsets from the anchor to the readout cell and hands back whatever that sheet decided. Duplicating the assembly rules here would mean re-implementing Ln wrapping, dummy level qualification and interaction naming inside a JSON string literal, against spec bands that are TAKE formulas rather than addressable ranges.
+
+The anchor must be a REFERENCE, and that is a hard Excel constraint rather than a style choice. OFFSET reads its reference argument's own location; it does not dereference. Write =Model_Formula_String($A$4) with A4 holding ='My Sheet'!$AF$3 and the offsets are applied to A4 on the CALLING sheet, returning an unrelated cell's value silently. Only a reference written into the formula carries the target sheet's context without INDIRECT — which is why every caller writes 'My Sheet'!$AF$3 directly.
+
+The guard is what makes a mis-pointed anchor loud. Row 1 column A of every Regression-shaped sheet holds the literal "MODEL SPECIFICATION", which OFFSET(anchor,-2,-31) reaches from the anchor; when that probe fails the function returns #N/A rather than an arbitrary number. Workbook-scoped, unlike Model_Formula: the body reads no unqualified sheet-scoped name, so there is no 'whichever sheet is literally named Regression' trap, and one definition serves every Calling sheet — including a workbook with none.
+
+Returns: The target sheet's model formula string, e.g. "mpg ~ 1 + weight + horsepower"; #N/A when the anchor does not point at a Regression sheet.
+
+Another Regression sheet's model formula string, read from its Comparison_Model_Formula. Pass a reference to that sheet's Comparison_Anchor; #N/A when the anchor is not a Regression sheet.
+
+```excel
+=LAMBDA(anchor,
+    LET(
+        ok,    IFERROR(OFFSET(anchor,-2,-31) = "MODEL SPECIFICATION", FALSE),
+        label, IFERROR(OFFSET(anchor,-2,45), ""),
+        IF(AND(ok, label <> ""), label, NA())
     )
 )
 ```

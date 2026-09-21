@@ -129,7 +129,7 @@ category can grow its own subdivisions independently as it fills up.
 | **Data Transformation** | Sample Construction & Diagnostics · Location & Scale · Group & Panel · Categorical & Model Construction · Longitudinal & Panel-Time |
 | **Distribution Fitting** | Descriptive · Histogram Binning · Parameter Estimation · Goodness-of-Fit |
 | **Resampling & Simulation** | Bootstrap · Monte Carlo |
-| **Model Comparison** | Spec String & Registry *(provisional — promote from a subcategory only once it holds 2+ functions; see v3.4)* |
+| **Model Comparison** | Spec String & Registry · Set Status Readouts |
 
 Notes:
 
@@ -143,10 +143,15 @@ Notes:
 - Data Transformation subcategories are unchanged across versions; those
   functions serve double duty as constructor internals and standalone
   user-callable transforms.
-- **Model Comparison** is listed provisionally as a top-level category for
-  the Model Comparison sheet's single function. Per the "categories describe what a
-  function does" rule it earns top-level status once it holds 2+ functions;
-  until then it may equally live as a Model Construction subcategory.
+- **Model Comparison** was listed provisionally as a top-level category while
+  it held the Model Comparison sheet's single function. Per the "categories
+  describe what a function does" rule it earns top-level status at 2+ functions,
+  and v3.4 is where it got there: `Model_Formula_String` and `Comparison_Field`
+  under **Spec String & Registry** (the label and the positional statistic
+  reader), and `Comparison_Flag_Status` under **Set Status Readouts** (the row-2
+  verdict over a gate's flag band). All three are workbook-scoped and take the
+  anchor reference they read as an argument, so none of them belongs to a
+  sheet — see `DECISIONS.md` § v3.4.
 
 This table is the source of truth for the controlled vocabulary; `category`
 and `subcategory` values in `lambda_functions.json` should be drawn only

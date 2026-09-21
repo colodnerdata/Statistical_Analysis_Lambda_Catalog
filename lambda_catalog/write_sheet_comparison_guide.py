@@ -734,8 +734,10 @@ def _write_template_sheet(workbook: xw.Book) -> None:
         "make two models comparable, what each statistic is for and what change it "
         "survives, a step-by-step procedure for choosing a specification, and the moves "
         "that look like comparisons and are not. It is a reading guide only — it adds no "
-        "formulas and no new named ranges, and it is not the planned cross-sheet Model "
-        "Comparison registry. For the mechanics of setting a specification up, see the "
+        "formulas and no new named ranges. The Model Comparison sheet beside it is the "
+        "registry this guide explains: one row per fitted model, with the comparability "
+        "tests the first layer below describes already applied to each row. For the "
+        "mechanics of setting a specification up, see the "
         "Regression Instructions sheet; for what each modeling feature does, see Modeling "
         "Concepts; for what to look for in the residual plots, see the Diagnostic Guide."
     )

@@ -27,6 +27,10 @@ from .spec_layout import (
     _C_SEQUENCE_PERIOD as _C_SPEC_SEQUENCE_PERIOD,
 )
 from .spec_layout import (
+    _FIRST_DATA_ROW,
+    _LAST_DATA_ROW,
+)
+from .spec_layout import (
     _DEFAULT_TRANSFORM,
     _ROLE_PREDICTOR,
     _ROLE_RESPONSE,
@@ -107,8 +111,8 @@ _C_AA = 27  # labels (stats / ANOVA / coefficients)
 _C_AB = 28  # stat values / ANOVA df / coefficient values
 _C_AC = 29  # ANOVA SS / coefficient SE
 _C_AD = 30  # diagnostics labels / ANOVA MS / coefficient t-stat
-_C_AE = 31  # Predicted Variable label (AE2) / diagnostics values / ANOVA F / coefficient p-value
-_C_AF = 32  # predicted variable readout (AF2) / ANOVA Sig F / coefficient CI lower
+_C_AE = 31  # "Predicted Variable" heading (AE3) / diagnostics values / ANOVA F / coefficient p-value
+_C_AF = 32  # predicted variable readout (AF3) / ANOVA Sig F / coefficient CI lower
 _C_AG = 33  # coefficient CI upper
 _C_AH = 34  # Beta Weights
 
@@ -118,9 +122,11 @@ _C_AI = 35  # thin gap (ungrouped)
 # Zone 4: Prediction Outputs
 _C_AJ = 36  # prediction interval labels / prediction input labels
 _C_AK = 37  # prediction interval values / prediction input values
-_C_AL = 38  # Training Mean — the per-constructed-column means spill (AL23).
-            # The spill owns column AL downward, so it can never collide with
-            # another spill when the source data or spec changes.
+_C_AL = 38  # Original Units interval values (rows 3-11) AND Training Mean —
+            # the per-constructed-column means spill (AL23 onward). Two
+            # stacked roles in one column, separated by rows 12-20. The spill
+            # owns column AL downward, so it can never collide with another
+            # spill when the source data or spec changes.
 
 # Gap before Residual Output.
 _C_AM = 39  # thin gap (ungrouped)
@@ -197,6 +203,16 @@ _ROW_UNIT_R_SQUARED = 7
 _ROW_UNIT_ADJUSTED_R_SQUARED = 8
 _ROW_UNIT_RMSE = 9
 _ROW_RESPONSE_SPACE = 10
+# Prediction Outputs, Original Units column (AL) — the back-transformed
+# siblings of the Fit Space block above them. Rows 5-7 (SE Mean, SE New Obs,
+# t Critical) have no unit-space counterpart and stay blank, so these five
+# rows are the whole populated content of AL3:AL11.
+_ROW_PRED_POINT_ESTIMATE = 4
+_ROW_PRED_CI_LOWER = 8
+_ROW_PRED_CI_UPPER = 9
+_ROW_PRED_PI_LOWER = 10
+_ROW_PRED_PI_UPPER = 11
+_ROW_PRED_CONFIDENCE_LEVEL = 12  # label only; the value lives in AK12
 
 
 def _abs_ref(row: int, col: int) -> str:
@@ -239,6 +255,32 @@ _A_FE_GROUP = _abs_ref(_ROW_FE_GROUP, _C_AK)
 _A_RESIDUAL_DF = _abs_ref(_ROW_ANOVA_RESIDUAL_DF, _C_AB)
 _A_DESIGN_COLUMNS_TOTAL = _abs_ref(1, _C_SPEC_DESIGN_COLUMNS)
 
+# ── The spec block's identity columns, for cross-sheet readers ─────────────────
+# The Model Comparison sheet has to answer "are these two rows the same
+# response?" across sheets, and the response READOUT (_A_RESPONSE_READOUT) cannot
+# answer it: that cell shows the response as FITTED, so a Log fit of MPG reads
+# "Ln(MPG)" while a level fit of the same data reads "MPG". Comparing those two
+# labels says "different responses" when the whole point of the unit-space
+# statistics is to compare exactly that pair.
+#
+# So the reader identifies the response from the spec block instead — the Role
+# column's "Response (y)" row and that row's Variable label — which is the
+# untransformed source column name, with no transform applied and none implied.
+# Both bands are sized by the block itself (_FIRST_DATA_ROW.._LAST_DATA_ROW),
+# so retargeting Source_Table does not move them; the Model Comparison writer
+# never spells either address, it derives the offsets from these two.
+_C_SPEC_VARIABLE = 1     # A — the spec block's Variable labels
+_C_SPEC_ROLE = 2         # B — the spec block's Role tokens
+_A_SPEC_VARIABLE_BAND = (
+    f"{_abs_ref(_FIRST_DATA_ROW, _C_SPEC_VARIABLE)}:"
+    f"{_abs_ref(_LAST_DATA_ROW, _C_SPEC_VARIABLE)}"
+)
+_A_SPEC_ROLE_BAND = (
+    f"{_abs_ref(_FIRST_DATA_ROW, _C_SPEC_ROLE)}:"
+    f"{_abs_ref(_LAST_DATA_ROW, _C_SPEC_ROLE)}"
+)
+_SPEC_BAND_HEIGHT = _LAST_DATA_ROW - _FIRST_DATA_ROW + 1
+
 # ── The Cook's Distance influence cutoff ──────────────────────────────────────
 # D_i > F(0.5, p, n−p): the median of the reference F distribution, which is the
 # standard rule and the one this sheet screens on. Written once and reused by the
@@ -272,6 +314,23 @@ _A_UNIT_R_SQUARED = _abs_ref(_ROW_UNIT_R_SQUARED, _C_AH)
 _A_UNIT_ADJUSTED_R_SQUARED = _abs_ref(_ROW_UNIT_ADJUSTED_R_SQUARED, _C_AH)
 _A_UNIT_RMSE = _abs_ref(_ROW_UNIT_RMSE, _C_AH)
 _A_RESPONSE_SPACE = _abs_ref(_ROW_RESPONSE_SPACE, _C_AH)
+# The Original Units (AL) prediction block — the back-transformed point
+# estimate and its CI/PI bounds. These are the values a model comparison
+# actually compares: two models whose fits live in different spaces (a Log
+# response against a plain one) are only commensurable here, in response
+# units. Read by Comparison_Field (indices 19-23) and by the v3.4 Model
+# Comparison sheet.
+_A_PRED_POINT_ESTIMATE = _abs_ref(_ROW_PRED_POINT_ESTIMATE, _C_AL)
+_A_PRED_CI_LOWER = _abs_ref(_ROW_PRED_CI_LOWER, _C_AL)
+_A_PRED_CI_UPPER = _abs_ref(_ROW_PRED_CI_UPPER, _C_AL)
+_A_PRED_PI_LOWER = _abs_ref(_ROW_PRED_PI_LOWER, _C_AL)
+_A_PRED_PI_UPPER = _abs_ref(_ROW_PRED_PI_UPPER, _C_AL)
+# The contiguous span carrying all five — the range the sheet-scoped
+# Comparison_Prediction_Output name points at. It includes the blank rows
+# 5-7 so that a single rectangular band names the whole block; a consumer
+# reading it by position (as Comparison_Field does) addresses the rows it
+# wants and never relies on the gaps being empty.
+_A_PRED_OUTPUT_BAND = f"{_A_PRED_POINT_ESTIMATE}:{_A_PRED_PI_UPPER}"
 # The unit-space goodness-of-fit triplet as a range — the range
 # Comparison_Headline_GoF points at.
 _A_UNIT_GOF_TRIPLET = (

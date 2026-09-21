@@ -70,6 +70,7 @@ from lambda_catalog.write_sheet_csv_dataset import (
     write_csv_dataset_sheet,
 )
 from lambda_catalog.write_sheet_lambda_functions import write_catalog_sheet
+from lambda_catalog.write_sheet_comparison import write_comparison_sheet
 from lambda_catalog.write_sheet_test_model import (
     FIXTURE_COLUMNS,
     write_guard_state_sheet,
@@ -79,6 +80,45 @@ from lambda_catalog.write_sheet_test_model import (
 ROOT_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_WORKBOOK_PATH = ROOT_DIR / "Lambda_Library_TestModels.xlsx"
 DEFAULT_DEFINITIONS_PATH = ROOT_DIR / "lambda_functions.json"
+
+# The curated Model Comparison registry for this artifact — deliberately NOT
+# every case sheet. The sheet's gates compare every row against row 1, so the
+# useful registry is one reference row plus at most one row per gate it can
+# demonstrate; registering 50 case sheets would bury those four rows in rows
+# that say little beyond "a different model".
+#
+# Row 1 is M01, the Auto MPG baseline, and the four that follow each break
+# exactly one gate relative to it:
+#
+#   M05  Space-F   — the same declared response fitted to the same 392 rows,
+#                    but fitted logged, so the fit-space zone is shaded while
+#                    the unit-space columns beside it stay readable. This is
+#                    the pair the unit-space zone exists for.
+#   M14  Inputs-F  — same set and same space, more design columns (17 vs 18),
+#                    so its prediction answers a different point and the
+#                    prediction zone is shaded.
+#   M15  Set-F     — a different sample (245 vs 392 rows). Nothing on the row is
+#                    comparable to the reference, which is why this gate
+#                    invalidates every statistic zone.
+#   L02/L03        — the Duan/Naive pair on the Life Expectancy Log response.
+#                    They are Set-F against M01 (a different response on a
+#                    different sample), so they are here as a shipped second
+#                    comparison group rather than as this sheet's Method gate.
+#
+# Method-F — two rows identical except for the back-transform method — is the
+# one gate this artifact cannot show against an M01 reference: no shipped case
+# pair differs in method and nothing else within the Auto MPG set. The pair that
+# does (L02 vs L03, same 2768 rows, one method apart) is exercised by the
+# Excel-gated test, which points row 1 at L02 instead. See
+# tests/test_comparison_excel.py.
+_COMPARISON_REGISTRY: tuple[str, ...] = (
+    "M01 Baseline Categoricals",
+    "M05 Log-Log NA Masking",
+    "M14 Mixed Cat And Continuous",
+    "M15 Filter Degenerate Cat",
+    "L02 Log Response Duan",
+    "L03 Log Response Naive",
+)
 
 # --kind: the structural halves of the registry. "models" is the fittable
 # RegressionSpecCase set (a working regression with a NumPy/statsmodels
@@ -356,6 +396,23 @@ def build_test_models_workbook(
                             closures,
                         )
                     built.append(guard.case.sheet_name)
+
+                # After every case sheet, so its row readers offset into
+                # spec blocks that already exist. Deliberately NOT appended to
+                # `built`: that list is what the verifier reads as the case
+                # sheets, and this sheet is a reader of them, not one of them.
+                #
+                # Intersected with `built`, because a filtered run (--cases /
+                # --exclude / --kind) writes a subset. Naming a sheet that was
+                # not written would leave an anchor name pointing at a
+                # nonexistent worksheet, and the row would read #REF! rather
+                # than the blank its guard is built to produce.
+                comparison_registry = [
+                    name for name in _COMPARISON_REGISTRY if name in set(built)
+                ]
+                if comparison_registry:
+                    progress.phase(f"Model Comparison ({len(comparison_registry)} row(s))")
+                    write_comparison_sheet(workbook, registry=comparison_registry)
 
                 progress.phase("Save")
                 app.api.Calculation = XL_CALCULATION_SEMIAUTOMATIC

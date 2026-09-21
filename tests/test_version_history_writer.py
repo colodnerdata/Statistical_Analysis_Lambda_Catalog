@@ -77,7 +77,7 @@ def test_the_changelog_is_ascending_from_1_0_0_with_no_gaps(stub_helpers) -> Non
 
     rows = _version_rows(stub_helpers)
     assert rows[0] == "1.0.0"
-    assert rows[-1] == "3.3.0"
+    assert rows[-1] == "3.4.0"
     # This lineage carries the pre-split Univariate history (1.1.0's
     # "Univariate Analysis release") — the Regression workbook carried the
     # sheet until 3.0.0, so reunifying changed nothing about these rows.
@@ -88,7 +88,7 @@ def test_the_changelog_is_ascending_from_1_0_0_with_no_gaps(stub_helpers) -> Non
     # until they were backfilled.
     assert rows == [
         "1.0.0", "1.1.0", "1.2.0", "2.0.0", "2.1.0", "2.2.0", "3.0.0", "3.1.0",
-        "3.3.0",
+        "3.3.0", "3.4.0",
     ]
     # No 3.2.0: that number was reserved for the resequenced "transforms
     # remainder" milestone, which shipped under 3.3.0 (the unit-space

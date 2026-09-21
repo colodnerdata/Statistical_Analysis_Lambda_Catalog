@@ -247,10 +247,10 @@ rows and `INDEX(rl, 23)` would run off the end — which is why the block is
 table-free (see AGENTS.md → *The spec block has no fixed height*).
 
 The case earns its sheet by where its evidence sits, not by the model it fits:
-`Schooling` contributes design columns from spec index 21 — sheet row 25, ten
-rows past the old table's bottom edge at row 15.
+`Schooling` contributes design columns from spec index 21 — sheet row 25, eleven
+rows past the old table's bottom edge at row 14.
 `test_retarget_case_puts_its_evidence_past_the_narrow_shells_last_row` pins
-that, so a future edit that moves the predictors up into the first 12 rows
+that, so a future edit that moves the predictors up into the first 11 rows
 fails rather than silently testing nothing.
 
 Four rows from other sections live here, because everything they test is
@@ -510,7 +510,7 @@ Two framing notes:
 
 | # | Roadmap item | Ships as | Scale effect | Test assets needed |
 |---|---|---|---|---|
-| 1 | **Model Comparison sheet** | **v3.4** *(unchanged)* | additive (~1×) — reads existing models | ≥3 registered models with shared prediction inputs — Section 1 already supplies them (e.g. M1, L2, P2). Add **one mismatched-predictor-set pair** (e.g. M1 vs M14) to exercise the `XLOOKUP [if_not_found]` open question. |
+| 1 | **Model Comparison sheet** | **v3.4** — *shipped 3.4.0* | additive (~1×) — reads existing models | **As shipped:** the artifact registers a curated subset — `M01 Baseline Categoricals` (reference row), `M05 Log-Log NA Masking` (space gate), `M14 Mixed Cat And Continuous` (inputs gate), `M15 Filter Degenerate Cat` (set gate, 245 vs 392 rows), and `L02` / `L03` as a second comparison group. The **method gate** is the one case the shipped registry cannot show against an `M01` reference — every same-method-differing case also differs in response, so the set gate fires first — and it is exercised instead by the Excel-gated integration test, which points its reference row at `L02`. No new data and no new models were needed. |
 | 2 | **`Cluster` role** | **v3.5** *(was unordered v3.8+)* | near-additive — a variance-estimator variant on a few models | Within-group correlated data: Production Lots facilities suffice initially (3 clusters — deliberately few, to test the small-cluster warning path); `Grunfeld` (item 5) later provides 10–11 proper clusters. |
 | 3 | **`Time` role / lag-difference semantics** | **v3.6** *(was unordered v3.8+)* | near-additive — **and unlocks a today-gap** | A real **calendar-dated monthly series** (~144 rows, AirPassengers-shaped, with an actual date column). No wired dataset has dates; this asset also enables the Sequence **calendar-signature verdict** test in Section 1 immediately, before the Time role ships. The same series is later the whole of item 9's asset requirement, so wiring it here is what makes the Time Series sheet a no-new-data milestone. |
 | 4 | **WLS `Weight` role** | **v3.7** *(unchanged number, new reasoning)* | ~2× over a representative subset | Grouped/heteroskedastic data with a natural weight column: R/MASS `Insurance` (64 rows, claims with exposure `Holders`) or a grouped-mean aggregation of an existing dataset. Plan **weighted variants of ~6 representative Section-1 models** (one per dispatch-pair family), not the whole suite. Include the recorded trap as an oracle assertion: `DEVSQ(√w ⊙ y)` ≠ weighted SST. |

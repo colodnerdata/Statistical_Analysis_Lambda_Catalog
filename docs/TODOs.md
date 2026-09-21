@@ -45,7 +45,6 @@ One self-contained item:
 | Task | Size | Milestone |
 |---|---|---|
 | [Wire the calendar-dated monthly series](#test-model-suite) | M | Test suite |
-| [`Model_Formula_String` LAMBDA](#v34--model-comparison-sheet) | M | v3.4 |
 | [`Cluster` Role — clustered-robust V_β](#v35--cluster-role-clustered-ses) | L | v3.5 |
 | [Location & Scale transforms — `Center`, `Zscore`, `Minmax_Scale`, `Winsorize`](#v39--standalone-data-transformation-library) | M | v3.9 |
 | [Group & Panel transforms — `Zscore_By`, `Decompose_By`](#v39--standalone-data-transformation-library) | M | v3.9 |
@@ -77,7 +76,6 @@ last in the Regression track — they are also listed in their own working order
 | [Re-examine the intercept-only closed-form bypass](#v30-leftovers) | M | v3.0 |
 | [Diagnostic-chart reference lines](#v1x--regression-sheet) | M | v1.x |
 | [Suppress worst-fit distributions from the combo charts](#v11-leftovers--univariate-sheet-writer) | M | v1.1 |
-| [Model Comparison sheet layout](#v34--model-comparison-sheet) | L | v3.4 |
 | [Two-sample sheet layout](#v310--bivariate--two-sample) | M | v3.10 |
 | [Simulation sheet layout](#v311--resampling--simulation) | M | v3.11 |
 | [Time-series sheet (`write_sheet_time_series.py`)](#v312--time-series-analysis-sheet) | L | v3.12 |
@@ -90,7 +88,6 @@ last in the Regression track — they are also listed in their own working order
 | Question | Milestone |
 |---|---|
 | [Blank-categorical caveat in `Sample_Include()`](#v20-leftovers) | v2.0 |
-| [Mismatched-predictor-set fallback for the Comparison sheet](#v34--model-comparison-sheet) | v3.4 |
 | [Can a column be both `Sequence` and `Time`](#v36--time-role--lagdifference-semantics) | v3.6 |
 | [Two-sample selector — 3-way flag or separate `paired` boolean](#v310--bivariate--two-sample) | v3.10 |
 | [Does the Time Series sheet declare its own series, or read a `Time` Role](#v312--time-series-analysis-sheet) | v3.12 |
@@ -268,30 +265,36 @@ default mask only, and `FALSE` expresses an argument it cannot.
 
 ## v3.4 — Model Comparison Sheet
 
-Planned as v2.3; moved after v3.0 when the feature train was resequenced — see
-[ROADMAP.md](ROADMAP.md#v34--model-comparison-sheet--planned). Comes after v3.3
-because an R² computed on `Ln(y)` is not comparable with one computed on raw `y`.
+Shipped as 3.4.0 (2026-09-20). Originally planned as v2.3; moved after v3.0 when
+the feature train was resequenced — see
+[ROADMAP.md](ROADMAP.md#v34--model-comparison-sheet--shipped-340). It came after
+v3.3 because an R² computed on `Ln(y)` is not comparable with one computed on raw
+`y` — and the probe that shipped it found the split runs finer than that. See
+[DECISIONS.md § v3.4](DECISIONS.md).
 
-**Test assets — additive (~1×).** No new data: M1, L2, and P2 already supply ≥3
-registered models with shared prediction inputs. Add one mismatched-predictor-set
-pair (M1 vs M14) for the `XLOOKUP [if_not_found]` question below. See
+**Test assets — additive (~1×).** No new data: the artifact registers a curated
+subset (`M01`, `M05`, `M14`, `M15`, `L02`, `L03`) that exercises the set, space
+and inputs gates. See
 [docs/MODEL_TESTING_ASSETS.md § 2](MODEL_TESTING_ASSETS.md#section-2--assets-for-roadmap-features-in-ladder-order).
 
-- **READY · M · no Excel** — Implement the `Model_Formula_String` LAMBDA with
-  header-signature validation (`NA()` on non-Regression targets). The name
-  resolution and the anchor-cell argument-type rationale are in
-  [DECISIONS.md § v2.3 Model_Formula_String](DECISIONS.md#v23--model-comparison-sheet).
+- **DONE · M · no Excel** — `Model_Formula_String` shipped, plus
+  `Comparison_Field(anchor, i)` (the 24-entry positional statistic reader) and
+  `Comparison_Flag_Status(flags, what)` (the row-2 verdict over a gate band). All
+  three workbook-scoped and sheet-agnostic; the anchor argument-type rationale is
+  in [DECISIONS.md § v3.4](DECISIONS.md). `tests/test_comparison_offsets.py` pins
+  every literal offset against the `regression_layout` constant naming that cell.
 
-- **READY · L · needs Excel** — Sheet layout: model registry (hyperlinks), GoF
-  table referencing the v3.3 unit-space headline cells, shared prediction inputs
-  (Comparison sheet is the source; Regression sheets pull via XLOOKUP),
-  prediction results table. The data-flow direction
-  (Comparison-as-source-via-XLOOKUP) is in
-  [DECISIONS.md § v2.3 prediction inputs](DECISIONS.md#v23--model-comparison-sheet).
+- **DONE · L · needs Excel** — Sheet layout shipped as `write_sheet_comparison.py`
+  (`SHEET_NAME = "Model Comparison"`): registry, unit-space block, fit-space
+  block, prediction comparison, four gate flags and their row-2 verdicts.
+  **The shared prediction inputs did NOT ship** — they defer with the reverse
+  wiring, because the prediction machinery is sheet-scoped and a typed shared row
+  could compute nothing cross-sheet. The sheet has no typed input cells at all.
 
-- **OPEN · S · no Excel** — Decide the mismatched-predictor-set fallback
-  (XLOOKUP `[if_not_found]`). See the open-decision note in
-  [DECISIONS.md § v2.3 Model Comparison Sheet](DECISIONS.md#v23--model-comparison-sheet).
+- **DONE · S · no Excel** — The mismatched-predictor-set fallback is `NA()` on
+  every reader's lookup, and the set gate flags the row rather than the sheet
+  failing. `Comparison_Field`'s field 24 (the declared response name) is the key,
+  because the anchor cell holds the `Ln()`-wrapped label.
 
 ## v3.5 — `Cluster` Role (clustered SEs)
 
@@ -529,8 +532,9 @@ through a `TimeSeriesSpecCase` registry mirroring `RegressionSpecCase`. See
 
 - **BLOCKED · — · no Excel** — Decide whether the sheet declares its own series
   or consumes a Regression sheet's `Time` Role. Leaning independent; cross-sheet
-  reading is the v3.4 Comparison sheet's job. Everything else here waits on the
-  answer only for where the series comes from, not for what it is.
+  reading is the shipped Model Comparison sheet's job, not this one's. Everything
+  else here waits on the answer only for where the series comes from, not for
+  what it is.
 
 - **BLOCKED · — · no Excel** — Decide whether the differenced series is a
   materialized column or a per-consumer constructor closure. The ARCHITECTURE

@@ -89,7 +89,7 @@ _FEEDBACK_STATUS_ROW = _INTERCEPT_ROW  # 2 — the controls and the toggle share
 # COLUMNS(Source_Data), so a Source_Table retarget resizes it. This constant
 # survives only as the floor apply_spec_case clears to before writing a case,
 # so a shorter spec cannot leave a longer one's rows behind.
-_LAST_DATA_ROW = _FIRST_DATA_ROW + _N_VARIABLES - 1  # 15
+_LAST_DATA_ROW = _FIRST_DATA_ROW + _N_VARIABLES - 1  # 14
 # Sheet row _FIRST_DATA_ROW maps to Source_Data column 1. The CF rules still
 # recover a row's column index with ROW()-_ROW_TO_COL_OFFSET; the four
 # computed columns no longer need to, since a spill's MAP index IS the

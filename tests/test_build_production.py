@@ -99,6 +99,17 @@ class _FakeSheetCollection:
             return next(sheet for sheet in self.items if sheet.name == key)
         return self.items[key]
 
+    def add(self, name: str, after=None) -> _FakeSheet:
+        """``get_or_create_sheet`` creates a missing sheet through this.
+
+        The real collection is a COM collection whose ``Add`` takes a name and
+        an anchor; the fake only has to land the sheet in the list, which is
+        all the build-time code that gets this far ever reads back.
+        """
+        sheet = _FakeSheet(name)
+        self.items.append(sheet)
+        return sheet
+
 
 class _CleanupFailingBook:
     def __init__(self) -> None:
@@ -389,6 +400,7 @@ def _stub_regression_build_writers(monkeypatch, writer_calls: list[str]) -> None
         "copy_static_sheets",
         "write_version_history_sheet",
         "write_regression_output_sheet",
+        "write_comparison_sheet",
         "write_univariate_sheet",
     ]:
         monkeypatch.setattr(
@@ -430,6 +442,13 @@ def test_build_writes_univariate_sheet(monkeypatch, tmp_path) -> None:
     assert "write_univariate_sheet" in writer_calls
     assert "write_regression_output_sheet" in writer_calls
     assert "write_csv_dataset_sheet" in writer_calls
+    # Order, not mere presence: the Model Comparison sheet's row readers offset
+    # from the Regression sheet's Comparison_Anchor, so it must be written
+    # against an already-written Regression sheet — building it first would
+    # leave every reader pointing at a sheet whose spec block does not exist yet.
+    assert writer_calls.index("write_regression_output_sheet") < writer_calls.index(
+        "write_comparison_sheet"
+    )
     assert static_batches == [
         (
             build_production.STATIC_SHEETS_PATH,
@@ -924,6 +943,9 @@ def test_build_uses_life_expectancy_source_table_when_requested(
         build_production, "write_univariate_sheet", lambda *_, **__: None
     )
     monkeypatch.setattr(
+        build_production, "write_comparison_sheet", lambda *_, **__: None
+    )
+    monkeypatch.setattr(
         build_production,
         "write_regression_output_sheet",
         lambda *args, **kwargs: called.__setitem__(
@@ -976,6 +998,7 @@ def test_build_defaults_to_life_expectancy_source_table(monkeypatch, tmp_path) -
         "copy_static_sheets",
         "write_version_history_sheet",
         "write_univariate_sheet",
+        "write_comparison_sheet",
     ]:
         monkeypatch.setattr(build_production, name, lambda *_, **__: None)
     monkeypatch.setattr(
@@ -1039,8 +1062,8 @@ def test_reorder_and_style_sheet_tabs_orders_front_matter_and_sets_colors(
     monkeypatch,
 ) -> None:
     """The unified workbook's tab order puts the analysis templates first
-    (Regression, Regression Instructions, Modeling Concepts, Diagnostic
-    Guide, Model Comparison Guide, Univariate), then the reference sheets
+    (Regression and its guide, Modeling Concepts, Diagnostic Guide, Model
+    Comparison and its guide, Univariate), then the reference sheets
     (LAMBDA_functions, Version History), then the data sheets (Production
     Lots, Life Expectancy Data, Mileage Data)."""
     book = _TabOrderBook(
@@ -1054,6 +1077,7 @@ def test_reorder_and_style_sheet_tabs_orders_front_matter_and_sets_colors(
             "Production Lots",
             "Version History",
             "Regression Instructions",
+            "Model Comparison",
             "Model Comparison Guide",
             "Univariate",
         ]
@@ -1076,6 +1100,7 @@ def test_reorder_and_style_sheet_tabs_orders_front_matter_and_sets_colors(
         "Regression Instructions",
         "Modeling Concepts",
         "Diagnostic Guide",
+        "Model Comparison",
         "Model Comparison Guide",
         "Univariate",
         "LAMBDA_functions",
@@ -1094,6 +1119,7 @@ def test_reorder_and_style_sheet_tabs_orders_front_matter_and_sets_colors(
         "Modeling Concepts": build_production.SUBHDR_COLOR,
         "Regression": build_production.SUBHDR_COLOR,
         "Diagnostic Guide": build_production.SUBHDR_COLOR,
+        "Model Comparison": build_production.SUBHDR_COLOR,
         "Model Comparison Guide": build_production.SUBHDR_COLOR,
     }
 

@@ -222,9 +222,9 @@ One build script produces one workbook. `build_production.py` emits the unified 
 
 | Target | Produces | Calculation mode | Sheets |
 |---|---|---|---|
-| `Lambda_Library.xlsx` | The unified workbook | **Automatic** (full) | Regression, Regression Instructions, Modeling Concepts, Diagnostic Guide, Model Comparison Guide, Univariate, LAMBDA_functions, Version History, Production Lots, Life Expectancy Data, Mileage Data |
+| `Lambda_Library.xlsx` | The unified workbook | **Automatic** (full) | Regression, Regression Instructions, Modeling Concepts, Diagnostic Guide, Model Comparison, Model Comparison Guide, Univariate, LAMBDA_functions, Version History, Production Lots, Life Expectancy Data, Mileage Data |
 
-**The workbook carries the complete function library.** All 152 LAMBDA definitions are written into the Name Manager. There is no bundling step, no dependency closure, and no per-function subsetting. When you add a function, it lands in the workbook; there is no list to update.
+**The workbook carries the complete function library.** All 155 LAMBDA definitions are written into the Name Manager. There is no bundling step, no dependency closure, and no per-function subsetting. When you add a function, it lands in the workbook; there is no list to update.
 
 **The production constructor always runs the full `CalculateFullRebuild` and saves in full Automatic** — there is no skip-calculation flag.
 
@@ -248,7 +248,7 @@ The `Breaking?` flag in the Version History sheet attaches to the **workbook** v
 uv run python scripts/build_production.py
 ```
 
-Produces `Lambda_Library.xlsx` — the distributable workbook committed to the repo. Writes eleven sheets:
+Produces `Lambda_Library.xlsx` — the distributable workbook committed to the repo. Writes twelve sheets:
 
 - **LAMBDA_functions** — browsable catalog of all function definitions (the library)
 - **Life Expectancy Data** — WHO dataset as a structured table; this is one of the datasets the Regression template's `Source_Table` can target (a curated four-driver model: Adult Mortality, Alcohol, percentage expenditure, and `Status`)
@@ -258,6 +258,7 @@ Produces `Lambda_Library.xlsx` — the distributable workbook committed to the r
 - **Modeling Concepts** — per-feature explainers (Fixed Effects, reference levels, Sequence, Log transforms, interactions, sample filtering, intercept control): the point of each feature, the statistical method it enables, and a use case (reference sheet)
 - **Diagnostic Guide** — interpretation guide for regression diagnostics (reference sheet)
 - **Model Comparison Guide** — how to choose between candidate specifications: what makes two models comparable, what each statistic is for, a numbered procedure, the traps, and what the workbook deliberately does not provide (reference sheet)
+- **Model Comparison** — the cross-sheet registry: one row per fitted model, the goodness-of-fit columns split by comparability, and a read-only prediction comparison that flags rows whose sample or response space differs from the reference row (a pre-built template)
 - **Univariate** — descriptive statistics, histogram binning, and two-stage MLE distribution fitting (a pre-built template)
 - **Version History** — changelog that travels with the workbook
 - **Regression** — ToolPak-style analysis interface driven by a declarative variable-specification block (the spec block) and the sheet-scoped names that assemble the design matrix from it. A pre-built template. The wiring names (`Source_Data`, `Header_Names`, `Spec_*`) hardcode the spec block's cell addresses and are defined in `write_spec_block.py` (imported by `write_sheet_regression.py`); the constructor closures (`Sample_Include`, `Response_Column`, `Row_Labels`, `Predictor_Columns`, `Design_Columns`, `Design_Response`, `Constructed_Column_Names`) live in `lambda_functions.json` with `"scope": "Regression"`, so they are the single source of truth and appear on the LAMBDA_functions catalog sheet (Scope column) like any other function — they are just installed on this sheet rather than workbook-wide. Sheet scope is not the same as being a constructor: the row-2 status readouts (`Role_Status`, `Sequence_Status`, `Log_Domain_Status`, `Design_Width_Status`) are sheet-scoped for the same reason — each Regression sheet validates its own spec — but they feed no fit, they only say what is wrong with the specification. A new status cell is a new sheet-scoped catalog entry, not an inline formula in a writer

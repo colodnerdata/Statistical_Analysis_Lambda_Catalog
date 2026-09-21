@@ -164,7 +164,7 @@ _PLANNED = frozenset(
         "Demean_Two_Way_Balanced", "Exponential_Smoothing", "F_Test_Variance",
         "Fixed_Effects_Convergence_Check", "KPSS_Critical_Value",
         "KPSS_Statistic", "Ljung_Box_Q", "MC_Percentile", "Minmax_Scale",
-        "Model_Formula_String", "Moving_Average", "PERT_Sample",
+        "Moving_Average", "PERT_Sample",
         "T_Test_OneSample", "T_Test_TwoSample", "Zscore_By",
     }
 )

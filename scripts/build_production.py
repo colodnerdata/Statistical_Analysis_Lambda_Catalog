@@ -61,6 +61,10 @@ from lambda_catalog.write_sheet_csv_dataset import (
 )
 from lambda_catalog.write_sheet_lambda_functions import write_catalog_sheet
 from lambda_catalog.write_spec_block import SPEC_DATASET_PROFILES
+from lambda_catalog.write_sheet_comparison import (
+    SHEET_NAME as MODEL_COMPARISON_SHEET_NAME,
+    write_comparison_sheet,
+)
 from lambda_catalog.write_sheet_regression import write_regression_output_sheet
 from lambda_catalog.write_sheet_univariate import (
     UNIVARIATE_SHEET_NAME,
@@ -85,6 +89,7 @@ _SHEET_NAME_MODELING_CONCEPTS = "Modeling Concepts"
 _SHEET_NAME_REGRESSION = "Regression"
 _SHEET_NAME_DIAGNOSTIC_GUIDE = "Diagnostic Guide"
 _SHEET_NAME_MODEL_COMPARISON_GUIDE = "Model Comparison Guide"
+_SHEET_NAME_MODEL_COMPARISON = MODEL_COMPARISON_SHEET_NAME
 _SHEET_NAME_UNIVARIATE = UNIVARIATE_SHEET_NAME
 
 # Dataset profiles: maps the --regression-dataset choice to both the
@@ -211,14 +216,20 @@ def _reorder_and_style_sheet_tabs(workbook: xw.Book) -> None:
 
     Tab order (left to right):
     Regression, Regression Instructions, Modeling Concepts, Diagnostic
-    Guide, Model Comparison Guide, Univariate, LAMBDA_functions, Version
-    History, Production Lots, Life Expectancy Data, Mileage Data.
+    Guide, Model Comparison, Model Comparison Guide, Univariate,
+    LAMBDA_functions, Version History, Production Lots, Life Expectancy Data,
+    Mileage Data.
+
+    Each dynamic sheet sits immediately before its static guide (Regression
+    before Regression Instructions, Model Comparison before Model Comparison
+    Guide), so the guide reads as the explanation of the tab on its left.
     """
     ordered_front = [
         _SHEET_NAME_REGRESSION,
         _SHEET_NAME_REGRESSION_INSTRUCTIONS,
         _SHEET_NAME_MODELING_CONCEPTS,
         _SHEET_NAME_DIAGNOSTIC_GUIDE,
+        _SHEET_NAME_MODEL_COMPARISON,
         _SHEET_NAME_MODEL_COMPARISON_GUIDE,
         _SHEET_NAME_UNIVARIATE,
         _SHEET_NAME_LAMBDA_FUNCTIONS,
@@ -248,6 +259,7 @@ def _reorder_and_style_sheet_tabs(workbook: xw.Book) -> None:
         _SHEET_NAME_REGRESSION: SUBHDR_COLOR,
         _SHEET_NAME_DIAGNOSTIC_GUIDE: SUBHDR_COLOR,
         _SHEET_NAME_MODEL_COMPARISON_GUIDE: SUBHDR_COLOR,
+        _SHEET_NAME_MODEL_COMPARISON: SUBHDR_COLOR,
     }
 
     present = _sheet_names(workbook)
@@ -390,6 +402,10 @@ def build_production_workbook(
                 source_table_ref=source_table_ref,
                 spec_profile=regression_spec_profile,
             )
+            # After the Regression sheet on purpose: this sheet reads that
+            # sheet's Comparison_* names and its spill readers, so it has to
+            # be built against an already-written Regression sheet.
+            write_comparison_sheet(workbook, registry=[_SHEET_NAME_REGRESSION])
             write_univariate_sheet(
                 workbook,
                 document.univariate_sheet_notes,
@@ -645,6 +661,7 @@ def _build_and_verify(args: argparse.Namespace, workbook_path: Path) -> int:
     print("Sheet updated: Modeling Concepts")
     print("Sheet updated: Diagnostic Guide")
     print("Sheet updated: Model Comparison Guide")
+    print("Sheet updated: Model Comparison")
     print("Sheet updated: Version History")
     print("Sheet updated: Regression")
     print("Sheet updated: Univariate")

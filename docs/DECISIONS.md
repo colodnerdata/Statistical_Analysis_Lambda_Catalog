@@ -899,6 +899,13 @@ instead of typing a sheet name) when registering a model on the
 Comparison sheet. Consistent with the project's `INDIRECT`-avoidance
 stance.
 
+> **AMENDED** by v3.4 — *The Model Comparison sheet*. "not volatile" is wrong
+> as written: `OFFSET` **is** volatile, and the v3.4 readers are built from it.
+> The claim that holds is the `INDIRECT` half. The decision above stands — the
+> anchor cell is still the mechanism — and the real cost (a bounded number of
+> volatile cells, one per registry row per statistic, never a per-observation
+> one) is stated in that entry.
+
 ### `Comparison_Anchor` / `Comparison_Headline_GoF` / `Comparison_Prediction_Output` — public-interface commitment
 
 **Question:** how should the Comparison sheet reference cells on the
@@ -4486,3 +4493,231 @@ seeing `git ls-files --eol` report `w/crlf` next to `i/lf` should read that as t
 pre-existing checkout state rather than drift this file introduced. The artifact
 lines are explicit rather than left to `text=auto`'s detection because a
 misdetected `.xlsx` would be "normalised" as text and silently corrupted.
+
+---
+
+## v3.4 — The Model Comparison sheet: an anchor reference, four gates, and a probe that falsified the plan
+
+Shipped 2026-09-20 as **3.4.0**. `lambda_catalog/write_sheet_comparison.py`
+writes a sheet named **Model Comparison** into the unified workbook, which now
+ships twelve sheets. One row per fitted model, four column blocks, the
+Regression sheet's row grammar: row 1 zone labels, row 2 verdicts, row 3
+headers, data from row 4, freeze at `A4`.
+
+Blocks, separated by one ungrouped gap column each (M, Q, AB — so each collapses
+independently): the **model registry** (A–L: the anchor, the derived sheet name
+and hyperlink, the assembled formula string, the model's identity cells, and the
+four gate flags), the **unit-space** block (N–P: R², adjusted R² and RMSE in
+original units — the `Comparison_Headline_GoF` triplet),
+the **fit-space** block (R–AA: F, Significance F, R², adjusted R², standard
+error, PRESS, PRESS R², AIC, BIC, AICc), and the **prediction** block (AC–AI:
+point estimate, CI/PI bounds in original units, the model's own input band as
+text, and the inputs-match flag).
+
+This entry records four things the plan of record either got wrong or could not
+have known: the argument that reaches `OFFSET` had to be a *reference* rather
+than a cell; the anchor's own cell is not the model's response name but its
+`Ln()`-wrapped label; one comparison key cannot express the comparison the plan
+itself describes, so the sheet carries **four independently-live gates**; and
+the workbook-scope rejection recorded above at *The assembly became a catalog
+LAMBDA* does not reach the three functions this sheet calls.
+
+### The anchor must be a REFERENCE, not a cell holding one
+
+**Question:** the plan's add-a-model story was "point one cell at the target
+sheet". Can a cell that *contains* a cross-sheet reference serve as the
+`reference` argument of `OFFSET`?
+
+**RESOLVED — a sheet-scoped NAME per row.** A probe settled it the hard way.
+`OFFSET(reference, …)` preserves the **reference** argument's sheet context and
+does not dereference it. `='Regression'!$AF$3` sitting in a *cell* is a value —
+a cell on the Comparison sheet — so `OFFSET` over it offsets within the
+Comparison sheet, silently reading the wrong sheet and returning a plausible
+number. A **sheet-scoped defined name** whose `RefersTo` is the cross-sheet
+reference *is* a reference, and forwards correctly. So registry row `n` carries
+`Comp_Anchor_<n> = ='<target>'!$AF$3`, and every formula in the row offsets from
+that name. Adding a model is one Name Manager edit.
+
+**REJECTED — pointing `Comp_Anchor_<n>` at the target's own `Comparison_Anchor`
+name.** That is a second name hop, and whether Excel carries a *reference*
+through two name hops is not something this project has verified. The writer
+therefore emits the raw cell address, derived from the same `regression_layout`
+constant (`_A_RESPONSE_READOUT`) that `Comparison_Anchor`'s own `RefersTo` is
+built from, so the two cannot drift apart.
+
+**The volatility cost, corrected.** The v2.3 entry above says the mechanism uses
+`OFFSET`/`INDEX` and is "not volatile". The `INDIRECT` half of that is right; the
+volatility half is not — **`OFFSET` is volatile**. It is still the right
+mechanism, because the cost is bounded and small: one volatile cell per registry
+row per statistic read, and `Comparison_Field`'s `CHOOSE` evaluates exactly one
+`OFFSET` per cell rather than all 23. A registry of eight rows reading 23
+statistics is under 200 volatile cells, none of it scaling with the data. The
+alternative, `INDIRECT`, is volatile too *and* needs a sheet name as text and
+breaks on sheet rename, which is why it stays rejected.
+
+**A mis-pointed anchor is loud, not silently wrong.** Every reader opens with
+`OFFSET(anchor, -2, -31)`, which reaches `$A$1` — the cell every
+Regression-shaped sheet holds as the literal `"MODEL SPECIFICATION"`. A row
+whose anchor points anywhere else returns `NA()`, never a number read from the
+wrong sheet. That guard is the whole reason the offsets could be literal numbers
+in a JSON body in the first place.
+
+### `$AF$3` is the `Ln()`-wrapped label, so the comparison-set key is a different cell
+
+**Question:** the anchor is the response-name readout, so is it not the natural
+key for "are these two rows the same model"?
+
+**RESOLVED — no. The set key is field 24, the *declared* response variable read
+out of the target's spec block.** The probe found that `$AF$3` holds
+`_RESPONSE_NAME_FORMULA`, which is the response name **as fitted**: an
+untransformed MPG fit reads `"MPG"`, a log fit of the same data reads
+`"Ln(MPG)"`. Two rows of one comparison set — same data, same declared response,
+one of them logged — would compare unequal on it, which is the opposite of what
+the set test is for. So `Comparison_Field` grew a 24th entry that reads the
+declared name instead: a ranged `OFFSET` to the spec block's first data row, a
+`_SPEC_BAND_HEIGHT`-tall band in the Variable column, and an `XMATCH` over the
+matching Role band against `_ROLE_RESPONSE` to find which row carries the
+Response role. That is the only field read as a range, and the only one whose
+offsets are a 4-tuple.
+
+### One comparison key could not express the comparison — four gates
+
+**Question:** the plan proposed a single comparison-set key —
+`response name | response space | n | back-transform method` — with the rows
+that differ from the reference flagged, scoped to the columns a mismatch
+invalidates. Does that key actually select the right columns?
+
+**REJECTED — one key, and the invariance premise behind it.** A probe on the
+production Life Expectancy fit, flipping **only** the response Transform
+(`None` → `Log`) and changing nothing else, falsified the premise the key was
+built on. What moves: the fitted response label, the Response Space readout, the
+**F statistic**, unit-space R² / adjusted R² / RMSE, R² / adjusted R² / standard
+error, PRESS / PRESS R², AIC / BIC / AICc, the point estimate, the CI and PI
+bounds, and the smearing factor. What does **not** move: n, k, the back-transform
+method, and Significance F. Two of those are worth stating plainly, because the
+plan asserted the opposite of both: **F and Significance F are fit-space
+statistics**, not transform-invariant (an F-test compares the logged model's
+likelihood structure), and the **unit-space triplet is not transform-invariant
+either** — the fitted function changes, so R² in original units is a different
+number. It stays *interpretable*, which is a different claim from *unchanged*.
+
+A second probe settled the method axis on its own: `L02 Log Response Duan`
+against `L03 Log Response Naive` — same 2,768 rows, one method apart — moves the
+unit-space triplet and the point estimate while leaving R², standard error, AIC
+and F identical. So the method flag does not belong on the fit-space columns
+either.
+
+**RESOLVED — four gates, each live on its own, each gating the zones it actually
+invalidates.**
+
+| Gate | Key | Gates |
+|---|---|---|
+| Same Set? | declared response name (field 24) + n | all three statistic zones |
+| Same Space? | the Response Space readout at `AH10` | the fit-space block only |
+| Same Method? | the back-transform method at `AH5` | the unit-space and prediction blocks |
+| Same Inputs? | k + the model's own prediction-input values | the prediction block only |
+
+The composite key could not be un-scoped afterwards: "these differ in the set
+key" and "these differ in the method" invalidate different columns, and a key
+that collapses them tells the reader neither. Each gate is a `TRUE`/`FALSE` cell
+in the row (J, K, L, AI), blank in an unregistered row; the row-2 verdict for
+each is `Comparison_Flag_Status(flags, what)`, a workbook-scoped LAMBDA taking
+the flag band and the thing being compared, which reports either "all *n*
+registered rows share one *what*" or "*k* of *n* registered rows differ in
+*what*". The conditional formatting highlights a column block when a registered
+row disagrees with the reference row on a gate that block depends on — the
+predicate is recomputed from the flag cells, never read off a formatting colour,
+per the guard-flag rule.
+
+### The workbook-scope rejection does not reach these three functions
+
+**Question:** the entry above rejects workbook scope for `Model_Formula` because
+its body reads six sheet-scoped names. Do the three new functions inherit that
+rejection?
+
+**RESOLVED — no.** `Model_Formula_String(anchor)`, `Comparison_Field(anchor, i)`
+and `Comparison_Flag_Status(flags, what)` read **nothing** unqualified. They take
+a reference as an argument and offset from it, or take a flag band as an
+argument. There is no sheet-scoped name in any body for a workbook-scoped
+definition to resolve against the wrong sheet, so the `Base_Period_Delta` trap
+cannot fire. `tests/test_comparison_offsets.py` pins the distinction rather than
+asserting it in prose: it asserts each body contains none of
+`Spec_Role`, `Spec_Transform`, `Spec_Include`, `Header_Names`, `Source_Data`,
+`Allow_Intercept`, `Constructed_Column_Names`, `Constructed_Column_Transforms`,
+`Predictor_Columns`, or `Fit_Context`.
+
+The offsets themselves are **literal numbers inside a JSON body**, which no
+import can reach — the same class of duplication as the two Log tokens. So the
+same commit adds a test that recomputes every offset from the `regression_layout`
+and `spec_layout` constants naming those cells, including the guard probe, the
+23-entry position table, field 24's two band offsets, and
+`Model_Formula_String`'s label offset. A column insertion right of `AF`, the
+ordinary repair for a layout change, fails the suite instead of half-landing.
+
+### `Comparison_Prediction_Output` completes the four-name interface; `NA()` is the fallback
+
+The v2.3 public-interface commitment named `Comparison_Anchor`,
+`Comparison_Headline_GoF` and `Comparison_Prediction_Output` — and listed the
+`Comparison_Model_Formula` readout as the fourth surface the registry would need.
+v3.3 shipped three of the four. This release adds
+**`Comparison_Prediction_Output`** (the Original Units block at AL, point
+estimate plus CI/PI bounds), so all four now exist on every Regression-shaped
+sheet. Its `RefersTo` is built from `_A_PRED_OUTPUT_BAND` rather than a literal
+address, and it carries its Name Manager comment like every other name.
+
+**`NA()` is the not-found fallback**, not `""` and not `0`. Every reader's
+lookup can fail — an empty anchor, a mis-pointed anchor, a target sheet missing a
+readout — and the two failure modes must be distinguishable from a real value.
+`NA()` propagates as `#N/A`, which Excel's own aggregation and chart machinery
+skips or flags, whereas `""` would be silently treated as text and `0` as a
+number. This is the same choice the v2.0 entry made for `Dummy_Levels` /
+`Dummy_Code`, for the same reason: `NA()` is the one token `IFERROR`/`ISNA`
+guards catch reliably.
+
+### The test-model artifact registers a curated subset
+
+`scripts/build_test_models.py` carries a module-level `_COMPARISON_REGISTRY` of
+six sheet names — `M01 Baseline Categoricals` as the reference row, `M05 Log-Log
+NA Masking` for the Space gate, `M14 Mixed Cat And Continuous` for the Inputs
+gate, `M15 Filter Degenerate Cat` for the Set gate (245 rows against 392), and
+`L02` / `L03` as a shipped second comparison group. The registry is intersected
+with the sheets the run actually built, so a filtered run writes the sheet over
+the names present rather than pointing an anchor at a sheet that was never
+created; and the sheet is deliberately **not** appended to the `built` list the
+verifier consumes, because it is not a case sheet.
+
+**The Method gate is the one case the shipped artifact cannot show against an
+M01 reference**, and the reason is worth stating: every curated case that differs
+in back-transform method also differs in the response, so it fires the Set gate
+first. The pair that isolates the method axis is `L02`/`L03` (same rows, one
+method apart), which the Excel-gated integration test exercises by pointing row
+1 at `L02` instead. `lambda_catalog/deep_verify.py` treats Model Comparison as
+optional-if-absent for the same reason it treats Univariate that way — a filtered
+build may legitimately not write it — while every other sheet a verify run
+calculates stays required.
+
+### What defers with the reverse wiring: the typed shared-input row
+
+**Question:** should the Comparison sheet carry a typed row of shared prediction
+inputs, so one edit re-predicts every registered model?
+
+**RESOLVED — deferred, because it is the same feature as the reverse wiring.**
+The prediction machinery (`Group_Prediction_Interval`, `Predictor_Columns()`,
+`Fit_Context()`) is sheet-scoped: it cannot be invoked from another sheet. Without
+repointing the Regression sheet's own prediction-input band at this sheet, a
+typed shared-input row could not compute anything for any model — it would be an
+input cell that silently does nothing, which is worse than an absent feature. So
+the sheet has **no typed `INPUT_COLOR` cells at all**: the prediction block is a
+read-only comparison of each model's *own* inputs, and the Inputs gate flags a
+row whose inputs differ from the reference. Recording it here so the zone is not
+later built as a decoy control.
+
+### The 3.4.0 that PR #236 carried
+
+The abandoned pull request #236 also claimed 3.4.0 for a unit-space LOOCV
+feature. The version number is used here; that PR's claim is superseded by this
+entry, and the changelog's 3.4.0 row describes this sheet. The version-lineage
+rule is unchanged: 3.4.0 is a MINOR, and the changelog's `breaking` flag reads
+"No" — the Regression sheet's layout change in this release is an address shift
+(headers to row 3, freeze at `A4`, the spec sub-group nested inside E:Q), not a
+semantic break, which is the same call 3.3.0 made for its own column shift.

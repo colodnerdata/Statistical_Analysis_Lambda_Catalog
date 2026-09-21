@@ -369,10 +369,10 @@ def _shared_strings() -> list[str]:
 def _cell_texts(sheet_part: str) -> set[str]:
     """Every string stored in one worksheet, normalised.
 
-    Handles both storage forms (see ``_shared_strings``). Each ``is``/``si`` is
-    joined across its runs — a rich-text cell splits one value into several
-    ``<t>`` elements — and every individual ``<t>`` is also kept, so a value
-    split by runs still matches either way.
+    Handles both storage forms (see ``_shared_strings``). Each inline/shared string
+    is joined across its runs — a rich-text cell splits one value into several
+    ``<t>`` elements. For inline strings we also collect each individual ``<t>``
+    node, so a value split by runs still matches either way.
     """
     shared = _shared_strings()
     with zipfile.ZipFile(TEMPLATE_PATH) as archive:

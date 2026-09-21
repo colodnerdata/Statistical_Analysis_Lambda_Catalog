@@ -184,7 +184,7 @@ _ROW_ALPHA = 13                # confidence-level input
 _ROW_SIGNIFICANCE_F = 16
 _ROW_F_STATISTIC = 16          # ANOVA table: the Regression row's F cell
 # The ANOVA table's Residual row df cell (_C_AB); the anchor "the ANOVA
-# Regression df at $AB$16 is p − 1, not p" contrast below refers to is the
+# Regression df at $AB$16 is p − 1, not p" contrast below refers to its
 # row-16 sibling on the Regression side.
 _ROW_ANOVA_RESIDUAL_DF = 17    # ANOVA table: the Residual row's df cell
 _ROW_COEFF_FIRST = 22

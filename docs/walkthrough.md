@@ -3,10 +3,11 @@
 This page describes the steps in a regression analysis: point
 the sheet at data, declare a model, read the outputs, check the
 diagnostics, make a prediction. The tab-by-tab inventory is on
-{doc}`generated/workbook-tour`; the three built-in manual sheets have
+{doc}`generated/workbook-tour`; the four built-in manual sheets have
 their own generated pages — {doc}`generated/regression-instructions`
-(the *how*), {doc}`generated/modeling-concepts` (the *why*), and
-{doc}`generated/diagnostic-guide` (the *what to look for*).
+(the *how*), {doc}`generated/modeling-concepts` (the *why*),
+{doc}`generated/diagnostic-guide` (the *what to look for*), and
+{doc}`generated/model-comparison-guide` (the *which one to report*).
 
 ## Step 1 — Connect the Regression sheet to your data
 

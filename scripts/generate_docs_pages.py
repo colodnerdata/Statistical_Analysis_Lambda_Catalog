@@ -13,6 +13,8 @@ Pages produced:
                                 _PLANNED_FEATURES / _COLUMNS
 - diagnostic-guide.md         — from write_sheet_diagnostic_guide._TIER1 /
                                 _TIER2 / _THRESHOLDS / _GUIDANCE
+- model-comparison-guide.md   — from write_sheet_comparison_guide's ten
+                                content constants (_PREFLIGHT … _SIBLINGS)
 - spec-block.md               — headers from write_spec_block's spec header
                                 pairs; allowed values from spec_layout's
                                 _*_VALIDATION_LIST constants
@@ -30,6 +32,7 @@ import re
 from pathlib import Path
 
 from lambda_catalog import spec_layout as _sl
+from lambda_catalog import write_sheet_comparison_guide as _cg
 from lambda_catalog import write_sheet_diagnostic_guide as _dg
 from lambda_catalog import write_sheet_modeling_concepts as _mc
 from lambda_catalog import write_sheet_regression_instructions as _ri
@@ -53,7 +56,14 @@ def _md_escape(text: str) -> str:
 
 def _write(name: str, body: str) -> None:
     GENERATED.mkdir(parents=True, exist_ok=True)
-    (GENERATED / name).write_text(GENERATED_BANNER + body, encoding="utf-8")
+    # ``newline="\n"`` — the repository's policy is LF in the working tree on
+    # every platform (.gitattributes), and the default text-mode write would
+    # emit CRLF on Windows, leaving a Windows clone's regenerated pages
+    # different from everyone else's until Git normalised them on the next
+    # commit.
+    (GENERATED / name).write_text(
+        GENERATED_BANNER + body, encoding="utf-8", newline="\n"
+    )
     print(f"generated: docs/generated/{name}")
 
 
@@ -191,6 +201,81 @@ def write_diagnostic_guide() -> None:
         "",
     ]
     _write("diagnostic-guide.md", "\n".join(lines))
+
+
+# ── Model Comparison Guide ────────────────────────────────────────────────────
+
+
+def write_model_comparison_guide() -> None:
+    lines = [
+        "# Model Comparison Guide",
+        "",
+        "The same content as the workbook's **Model Comparison Guide** sheet,",
+        "rendered from the authored lists in",
+        "`lambda_catalog/write_sheet_comparison_guide.py`. It is a reading guide:",
+        "it adds no formulas and no new named ranges to the workbook.",
+        "",
+        "Fitting a model is the easy half. This page covers the other half —",
+        "which of several specifications to report, on what evidence, and",
+        "whether lining them up is legitimate at all.",
+        "",
+        "## Pre-flight — five things that must match",
+        "",
+    ]
+    lines += _concept_table(
+        _cg._PREFLIGHT,
+        ["Condition", "Where to check it", "Legal when", "If it does not match"],
+    )
+    lines += ["## What each edit does to a comparison", ""]
+    lines += _concept_table(
+        _cg._CHANGE_LEDGER,
+        [
+            "The edit",
+            "What it moves",
+            "What it leaves alone",
+            "What that means for a comparison",
+        ],
+    )
+    lines += ["## The questions, in the order an analyst asks them", ""]
+    lines += _concept_table(
+        _cg._QUESTIONS,
+        ["Question", "Where the answer lives", "What it tells you", "What it does not"],
+    )
+    lines += ["## The comparison ladder", ""]
+    lines += _reference_sections(
+        _cg._LADDER, ["Rung", "Where it is", "What it tells you", "What it does not survive"]
+    )
+    lines += ["## Stability before you report a coefficient", ""]
+    lines += _reference_sections(
+        _cg._STABILITY, ["Check", "Where to look", "Stable", "Not stable — what to do"]
+    )
+    lines += ["## Which evidence survives a broken assumption", ""]
+    lines += _reference_sections(
+        _cg._ASSUMPTION_EVIDENCE,
+        ["Broken assumption", "What is compromised", "What to do instead"],
+    )
+    lines += ["## Moves that look like a comparison and are not", ""]
+    lines += _reference_sections(
+        _cg._INVALID_MOVES, ["The move", "Why it misleads", "What to do instead"]
+    )
+    lines += [
+        "## The specification decision procedure",
+        "",
+        "Nine steps, in order. Steps 1 to 3 are the conditions; steps 4 to 6",
+        "build the candidates; steps 7 to 9 choose between them and state the",
+        "limits of the choice.",
+        "",
+    ]
+    for index, row in enumerate(_cg._SPEC_STEPS, start=1):
+        assert len(row) == 1, f"step {index} has {len(row)} cells, expected 1"
+        lines += [f"{index}. {row[0]}", ""]
+    lines += ["## What this workbook deliberately does not do", ""]
+    lines += _reference_sections(
+        _cg._ABSENCES, ["Not provided", "What that means", "What to do instead"]
+    )
+    lines += ["## Where to go next on the other reference sheets", ""]
+    lines += _reference_sections(_cg._SIBLINGS, ["Sheet", "What it answers"])
+    _write("model-comparison-guide.md", "\n".join(lines))
 
 
 # ── Spec-block reference ──────────────────────────────────────────────────────
@@ -555,7 +640,7 @@ def write_workbook_tour() -> None:
     m = re.search(r"ordered_front = \[(.*?)\]", src, flags=re.S)
     assert m, "ordered_front list not found in build_production.py"
     consts = re.findall(r"_SHEET_NAME_([A-Z_]+)", m.group(1))
-    assert len(consts) == 10, f"expected 10 sheet names, found {len(consts)}"
+    assert len(consts) == 11, f"expected 11 sheet names, found {len(consts)}"
     names = []
     for cname in consts:
         attr = f"_SHEET_NAME_{cname}"
@@ -566,7 +651,7 @@ def write_workbook_tour() -> None:
     lines = [
         "# The workbook, tab by tab",
         "",
-        "The shipped `dist/Lambda_Library.xlsx` presents ten tabs in this",
+        "The shipped `dist/Lambda_Library.xlsx` presents eleven tabs in this",
         "order (extracted from `scripts/build_production.py` at generation",
         "time):",
         "",
@@ -578,8 +663,9 @@ def write_workbook_tour() -> None:
         "- **Regression** — the working sheet: MODEL SPECIFICATION (A–O),",
         "  Regression Outputs, Prediction Outputs, Residual Output, and the",
         "  seven diagnostic charts.",
-        "- **Regression Instructions / Modeling Concepts / Diagnostic Guide** —",
-        "  the built-in manual (each has a generated page in this site).",
+        "- **Regression Instructions / Modeling Concepts / Diagnostic Guide /",
+        "  Model Comparison Guide** — the built-in manual (each has a generated",
+        "  page in this site).",
         "- **Univariate** — descriptive statistics, histograms, distribution",
         "  fitting, and Q-Q plots for one column of data.",
         "- **LAMBDA_functions** — the catalog itself, one row per function.",
@@ -596,6 +682,7 @@ def main() -> None:
     write_regression_instructions()
     write_modeling_concepts()
     write_diagnostic_guide()
+    write_model_comparison_guide()
     write_spec_block()
     write_lambda_reference()
     write_formula_review()

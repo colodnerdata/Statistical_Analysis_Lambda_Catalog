@@ -1,13 +1,14 @@
 """Regenerate every sheet in ``templates/static_sheets.xlsx`` in one shot.
 
 The static reference sheets (Regression Instructions, Modeling Concepts,
-Diagnostic Guide) are dataset-independent, so ``build_production.py``
-copies them out of this template instead of re-running their COM writes on
-every build (see CONTRIBUTING.md -> "Static reference sheets"). Each
-sheet's authored content lives in its own module -- ``_ROWS`` in
-``write_sheet_regression_instructions.py``, the body of
-``_write_template_sheet`` in ``write_sheet_modeling_concepts.py`` and
-``write_sheet_diagnostic_guide.py``. Editing one sheet's content and
+Diagnostic Guide, Model Comparison Guide) are dataset-independent, so
+``build_production.py`` copies them out of this template instead of
+re-running their COM writes on every build (see CONTRIBUTING.md -> "Static
+reference sheets"). Each sheet's authored content lives in its own module --
+``_ROWS`` in ``write_sheet_regression_instructions.py``, the content
+constants and the body of ``_write_template_sheet`` in
+``write_sheet_modeling_concepts.py``, ``write_sheet_diagnostic_guide.py``
+and ``write_sheet_comparison_guide.py``. Editing one sheet's content and
 forgetting the regenerate step -- or regenerating only one of two sheets
 edited together -- silently ships stale template text (see DECISIONS.md ->
 "Static template drift").
@@ -17,7 +18,8 @@ current Python source, and saves once -- there is exactly one command to
 run (and to remember) after editing any static sheet's content. The
 per-module CLIs (``python -m lambda_catalog.write_sheet_regression_instructions``,
 ``python -m lambda_catalog.write_sheet_modeling_concepts``,
-``python -m lambda_catalog.write_sheet_diagnostic_guide``) still work
+``python -m lambda_catalog.write_sheet_diagnostic_guide``,
+``python -m lambda_catalog.write_sheet_comparison_guide``) still work
 standalone for targeted debugging of a single sheet.
 """
 from __future__ import annotations
@@ -48,6 +50,12 @@ from lambda_catalog.write_sheet_modeling_concepts import (
 from lambda_catalog.write_sheet_modeling_concepts import (
     _write_template_sheet as _write_modeling_concepts_template,
 )
+from lambda_catalog.write_sheet_comparison_guide import (
+    SHEET_NAME as _MODEL_COMPARISON_GUIDE_SHEET_NAME,
+)
+from lambda_catalog.write_sheet_comparison_guide import (
+    _write_template_sheet as _write_model_comparison_guide_template,
+)
 from lambda_catalog.write_sheet_regression_instructions import (
     SHEET_NAME as _REGRESSION_INSTRUCTIONS_SHEET_NAME,
 )
@@ -62,6 +70,7 @@ _STATIC_SHEET_WRITERS: tuple[tuple[str, Callable[[xw.Book], None]], ...] = (
     (_REGRESSION_INSTRUCTIONS_SHEET_NAME, _write_regression_instructions_template),
     (_MODELING_CONCEPTS_SHEET_NAME, _write_modeling_concepts_template),
     (_DIAGNOSTIC_GUIDE_SHEET_NAME, _write_diagnostic_guide_template),
+    (_MODEL_COMPARISON_GUIDE_SHEET_NAME, _write_model_comparison_guide_template),
 )
 
 

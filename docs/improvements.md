@@ -6,8 +6,9 @@ plan of record.
 
 ## 1. Add Univariate instructions
 
-The Regression sheet has three reference sheets: **Regression
-Instructions**, **Modeling Concepts**, and **Diagnostic Guide**.
+The Regression sheet has four reference sheets: **Regression
+Instructions**, **Modeling Concepts**, **Diagnostic Guide**, and
+**Model Comparison Guide**.
 Univariate has hover Notes on its controls but no corresponding
 instructions sheet.
 
@@ -38,14 +39,29 @@ profile charts show one searched parameter.
 
 ## 4. Check cell addresses in reference text
 
+**Built** — `tests/test_static_sheet_citations.py`.
+
 The static reference sheets cite cell addresses in prose. Those citations
 can become outdated when the Regression layout changes, even when the
-underlying formulas use layout constants.
+underlying formulas use layout constants. It had already happened twice in
+the Diagnostic Guide: GVIF and Tolerance were cited as columns U and V
+while they live in X and Y.
 
-Derive address citations from `regression_layout.py` where possible, and
-check the remaining citations against their intended controls or outputs.
-Use labels such as “the Alpha input” where an address is unnecessary.
-Regenerate the static sheets and documentation after changing the text.
+The check extracts every `Cell <address>` and `Col <letter>` citation from
+the sheets' content constants and asserts it equals the address derived
+from the `regression_layout` / `spec_layout` constant that names it. It
+fails on a citation no pin covers, a pin no writer cites, and a citation
+whose spelling no longer matches the layout — all without Excel, beside
+the template-freshness check.
+
+The citations themselves stay literal text rather than being interpolated
+from the layout constants. An interpolated address cannot drift, but it
+also pushes the cell into the freshness check's weaker substring tier and
+turns the content constants into f-strings; keeping the sheet readable
+prose and pinning it with a test gives the same protection. Where an
+address is not needed the text names the control instead ("the Alpha
+input"). Regenerate the static sheets and documentation after changing
+the text.
 
 ## 5. Extend formatting when grids grow
 

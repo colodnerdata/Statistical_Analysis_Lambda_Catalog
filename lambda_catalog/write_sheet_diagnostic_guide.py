@@ -125,9 +125,9 @@ _TIER2: list[list[str]] = [
 
 
 _THRESHOLDS: list[list[str]] = [
-    ["GVIF (Generalized Variance Inflation Factor)", "Col U, Predictor Summary",
+    ["GVIF (Generalized Variance Inflation Factor)", "Col X, Predictor Summary",
      "GVIF > 5  (possible collinearity)", "GVIF > 10  (strong collinearity)"],
-    ["Tolerance", "Col V, Predictor Summary",
+    ["Tolerance", "Col Y, Predictor Summary",
      "Tolerance < 0.2", "Tolerance < 0.1"],
     ["PRESS R²", f"Cell {_A_PRESS_R_SQUARED.replace('$', '')}, Diagnostics",
      "—", "PRESS R² < 0  (worse than predicting Y-mean)"],
@@ -138,7 +138,11 @@ _THRESHOLDS: list[list[str]] = [
     # Column letters are the CURRENT layout. They had drifted a whole zone
     # out of date (AB/AC/AD/AG/AH) from before the Residual Output zone
     # moved to AN:BA, which is easy to miss because this sheet is baked
-    # into templates/static_sheets.xlsx and no build re-derives it.
+    # into templates/static_sheets.xlsx and no build re-derives it. GVIF
+    # and Tolerance drifted the same way afterwards; both were two columns
+    # out. `tests/test_static_sheet_citations.py` now pins every citation
+    # in this table back to its regression_layout column constant, so the
+    # next shift fails the suite instead of shipping.
     ["Coefficient P-values", "Col AE, Coefficients",
      "—", "P-value > alpha  (term not significant)"],
     ["Hat Diagonal (leverage)", "Col AR, Residual Output",

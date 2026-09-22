@@ -8,15 +8,16 @@ Sheet updated: Regression Instructions
 Sheet updated: Modeling Concepts
 Sheet updated: Diagnostic Guide
 Sheet updated: Model Comparison Guide
+Sheet updated: Model Comparison
 Sheet updated: Version History
 Sheet updated: Regression
 Sheet updated: Univariate
 Created names: 0
-Updated names: 127
+Updated names: 130
 Removed names: 0
-Verify: passed (spec mode, 67.9s, workbook='C:\\Users\\Stephen_Colodner\\windows_code\\Statistical_Analysis_Lambda_Catalog\\dist\\Lambda_Library.xlsx')
-Timing: build+sync    132.4s
-Timing: recalculate   14.4s
-Timing: verify        67.9s
-Timing: total         214.8s
+Verify: passed (spec mode, 73.9s, workbook='C:\\Users\\Stephen_Colodner\\windows_code\\Statistical_Analysis_Lambda_Catalog\\dist\\Lambda_Library.xlsx')
+Timing: build+sync    139.5s
+Timing: recalculate   15.6s
+Timing: verify        73.9s
+Timing: total         229.0s
 Log: C:\Users\Stephen_Colodner\windows_code\Statistical_Analysis_Lambda_Catalog\excel-only-runs\build_production verify no launch.log

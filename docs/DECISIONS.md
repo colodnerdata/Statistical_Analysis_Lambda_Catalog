@@ -4721,3 +4721,51 @@ rule is unchanged: 3.4.0 is a MINOR, and the changelog's `breaking` flag reads
 "No" — the Regression sheet's layout change in this release is an address shift
 (headers to row 3, freeze at `A4`, the spec sub-group nested inside E:Q), not a
 semantic break, which is the same call 3.3.0 made for its own column shift.
+
+### A mirrored statistic is displayed at its source sheet's precision (2026-09-21)
+
+**The choice.** The display formats of the statistics this sheet mirrors are
+declared **once**, in `lambda_catalog/regression_layout.py` —
+`_FMT_COUNT`, `_FMT_STAT`, `_FMT_F_STATISTIC`, `_FMT_SIGNIFICANCE_F` — and the
+Model Comparison sheet's `_NUMBER_FORMATS` table formats each mirrored column
+from them. A mirrored statistic is therefore drawn at the precision the
+Regression sheet draws the same number.
+
+**What it replaced.** The comparison sheet had its own format literals, and six
+of them disagreed with the cells they mirror: **F** and **Significance F** at
+`0.0000` against the Regression sheet's `0.0` and `0.0E+00`, and **PRESS**,
+**AIC**, **BIC** and **AICc** at `0.00` against its `0.0000`. The comment above
+that table asserted the values matched the Regression sheet's display
+convention; for those six the assertion was false, and nothing checked it.
+
+**Why it matters rather than being cosmetic.** The sheet exists so two rows can
+be read side by side, and its claim is that what it shows are the target sheet's
+own numbers. A mirrored statistic drawn at a different precision invites the
+reader to see a difference that is not there — `976.1166` beside `976.1` — on
+the one sheet whose entire purpose is judging differences. The p-value is the
+sharp case: four fixed decimals renders `3E-08` and `4E-05` identically, so a
+divergence in precision here erases a real difference rather than merely rounding
+it.
+
+**Why the rule needs a structural guard and not a comment.** A comment cannot
+fail. `tests/test_sheet_comparison_sheet.py` drives **both** writers against
+`RecordingSheet` and compares their emitted formats for every mirrored statistic,
+derived from the readers' position table and the column table rather than spelled
+out — so a drift on *either* side fails, and the Regression sheet moving to a new
+precision breaks the pair as much as this sheet choosing one.
+
+**Rejected alternatives.** (a) Two per-sheet format tables kept in step by
+convention — that is exactly what produced the six divergences. (b) Using the
+shared constants at each site with no cross-writer test — the test is what makes
+the shared table load-bearing rather than decorative. (c) Matching the Regression
+sheet's F at four decimals instead of adopting it — the source cell's format is
+the specification of what the reader sees there; a second opinion about precision
+is a second thing to keep in step.
+
+**The one exception, and why it is not a hole.** `k`
+(`_C_DESIGN_COLUMNS`) reads the spec block's Σ Design Columns total, which that
+block leaves General. It is an integer count, so `_FMT_COUNT` renders it
+identically, and it is excluded from the cross-writer comparison because there is
+no Regression number format for it to agree with. The exclusion is a named set
+(`_NOT_MIRRORED`) asserted to hold exactly one member, so it cannot quietly grow
+to cover a real divergence.

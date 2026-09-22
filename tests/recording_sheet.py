@@ -356,6 +356,18 @@ class RecordingListObjects:
     def __init__(self) -> None:
         self.items: list[RecordingListObject] = []
 
+    @property
+    def Count(self) -> int:
+        """``ListObjects.Count`` — what ``reset_generated_sheet`` enumerates.
+
+        Without it, driving a sheet's real entry point on this mock died in
+        ``reset_generated_sheet``'s ``range(sheet.api.ListObjects.Count, 0, -1)``
+        with an AttributeError before writing a single cell, so the tests that
+        must exercise the shipped sequence (and not a hand-rebuilt copy of it)
+        could not use the entry point at all.
+        """
+        return len(self.items)
+
     def Add(
         self,
         *,

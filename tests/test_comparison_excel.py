@@ -2,15 +2,17 @@
 
 **What only Excel can answer.** `tests/test_comparison_offsets.py` recomputes
 every `OFFSET` in the two readers from the layout constants, and
-`tests/test_sheet_writers.py` pins the sheet's structure headless. Neither
-evaluates a single formula, so neither can answer the one question the whole
-design rests on: **does `OFFSET`, handed a cross-sheet reference through a
-sheet-scoped name, actually read the OTHER sheet?** That is the mechanism the
-anchor story is made of, and it was settled by a probe rather than by reasoning
-— `OFFSET` preserves its reference argument's sheet context, and a cell merely
-*containing* a cross-sheet reference is a value on this sheet, not a reference
-to that one. If that were wrong, every row would read a plausible number off the
-wrong sheet, which is the worst failure this repository recognises.
+`tests/test_sheet_comparison_sheet.py` pins the sheet's structure headless —
+which reader index goes in which column, which cells each gate compares, which
+zone each red rule shades, and every mirrored statistic's number format against
+the Regression sheet's. Neither evaluates a single formula, so neither can answer
+the one question the whole design rests on: **does `OFFSET`, handed a cross-sheet
+reference through a sheet-scoped name, actually read the OTHER sheet?** That is the
+mechanism the anchor story is made of, and it was settled by a probe rather than
+by reasoning — `OFFSET` preserves its reference argument's sheet context, and a
+cell merely *containing* a cross-sheet reference is a value on this sheet, not a
+reference to that one. If that were wrong, every row would read a plausible
+number off the wrong sheet, which is the worst failure this repository recognises.
 
 **Why it reads the artifact rather than building one.** The comparison sheet's
 gates are meaningful only against real Regression-shaped sheets with real fits,

@@ -15,9 +15,9 @@ Sheet updated: Univariate
 Created names: 0
 Updated names: 130
 Removed names: 0
-Verify: passed (spec mode, 73.9s, workbook='C:\\Users\\Stephen_Colodner\\windows_code\\Statistical_Analysis_Lambda_Catalog\\dist\\Lambda_Library.xlsx')
-Timing: build+sync    139.5s
-Timing: recalculate   15.6s
-Timing: verify        73.9s
-Timing: total         229.0s
+Verify: passed (spec mode, 72.4s, workbook='C:\\Users\\Stephen_Colodner\\windows_code\\Statistical_Analysis_Lambda_Catalog\\dist\\Lambda_Library.xlsx')
+Timing: build+sync    145.1s
+Timing: recalculate   15.5s
+Timing: verify        72.4s
+Timing: total         233.0s
 Log: C:\Users\Stephen_Colodner\windows_code\Statistical_Analysis_Lambda_Catalog\excel-only-runs\build_production verify no launch.log

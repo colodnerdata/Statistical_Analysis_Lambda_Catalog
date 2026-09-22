@@ -128,8 +128,9 @@ _TEMPLATE_ROWS = 3
 _ROW_LAST = _ROW_FIRST + _REGISTERED_ROWS + _TEMPLATE_ROWS - 1
 
 # Where the flag bands, number formats and conditional formats stop. Generous on
-# purpose: the flag bands are what the row-2 verdicts count over, so a row a
-# user adds by copying one must fall inside them or the verdict would ignore it.
+# purpose: these bands are what the row-2 verdicts count over, so the writer can
+# ship additional pre-wired template rows (or be rebuilt with a larger
+# `template_rows`) without having to resize every rule/range.
 # Blank cells are counted as neither TRUE nor FALSE, so a wide band costs
 # nothing at calculation time.
 _BAND_LAST_ROW = 103

@@ -218,8 +218,7 @@ def test_the_address_parser_round_trips_through_col_letter() -> None:
 
 def test_the_anchor_is_the_response_readout_the_sheet_name_points_at() -> None:
     """The offsets are relative to this cell, so the cell has to be the right one."""
-    assert _ANCHOR == "$AF$3"
-
+    assert _ANCHOR == _abs_ref(_ROW_RESPONSE_READOUT, _C_AF)
 
 def test_the_guard_probe_reaches_the_model_specification_heading() -> None:
     """``OFFSET(anchor,-2,-31)`` is A1 — the literal every Regression sheet holds.

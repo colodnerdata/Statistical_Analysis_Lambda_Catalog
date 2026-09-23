@@ -7,13 +7,15 @@ Sheet updated: Production Lots
 Sheet updated: Regression Instructions
 Sheet updated: Modeling Concepts
 Sheet updated: Diagnostic Guide
+Sheet updated: Model Comparison Guide
+Sheet updated: Model Comparison
 Sheet updated: Version History
 Sheet updated: Regression
 Sheet updated: Univariate
-Created names: 0
+Created names: 3
 Updated names: 127
 Removed names: 0
-Timing: build+sync    209.2s
-Timing: recalculate   45.1s
-Timing: total         254.4s
+Timing: build+sync    409.5s
+Timing: recalculate   54.4s
+Timing: total         464.0s
 Log: C:\LocalPython\Statistical_Analysis_Lambda_Catalog\excel-only-runs\build_production.log

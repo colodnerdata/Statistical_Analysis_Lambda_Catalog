@@ -2,15 +2,17 @@
 
 **What only Excel can answer.** `tests/test_comparison_offsets.py` recomputes
 every `OFFSET` in the two readers from the layout constants, and
-`tests/test_sheet_writers.py` pins the sheet's structure headless. Neither
-evaluates a single formula, so neither can answer the one question the whole
-design rests on: **does `OFFSET`, handed a cross-sheet reference through a
-sheet-scoped name, actually read the OTHER sheet?** That is the mechanism the
-anchor story is made of, and it was settled by a probe rather than by reasoning
-— `OFFSET` preserves its reference argument's sheet context, and a cell merely
-*containing* a cross-sheet reference is a value on this sheet, not a reference
-to that one. If that were wrong, every row would read a plausible number off the
-wrong sheet, which is the worst failure this repository recognises.
+`tests/test_sheet_comparison_sheet.py` pins the sheet's structure headless —
+which reader index goes in which column, which cells each gate compares, which
+zone each red rule shades, and every mirrored statistic's number format against
+the Regression sheet's. Neither evaluates a single formula, so neither can answer
+the one question the whole design rests on: **does `OFFSET`, handed a cross-sheet
+reference through a sheet-scoped name, actually read the OTHER sheet?** That is the
+mechanism the anchor story is made of, and it was settled by a probe rather than
+by reasoning — `OFFSET` preserves its reference argument's sheet context, and a
+cell merely *containing* a cross-sheet reference is a value on this sheet, not a
+reference to that one. If that were wrong, every row would read a plausible
+number off the wrong sheet, which is the worst failure this repository recognises.
 
 **Why it reads the artifact rather than building one.** The comparison sheet's
 gates are meaningful only against real Regression-shaped sheets with real fits,
@@ -116,8 +118,23 @@ _SPOT_CHECKS: tuple[tuple[int, int, str], ...] = (
 
 # The anchor name a row reads. Not imported from the writer: this is the
 # user-facing half of the add-a-model story, and the test edits these names.
+# The writer numbers them 1-based from the first data row (`_anchor_name` in
+# write_sheet_comparison.py — row `_ROW_FIRST` reads `Comp_Anchor_1`), so the
+# `+ 1` is the naming contract, not an offset. Kept as one local helper because
+# three open-coded copies of this expression is how it drifted a row out.
+def _anchor_name(row: int) -> str:
+    return f"Comp_Anchor_{row - _ROW_FIRST + 1}"
+
+
+# A row well past the anchor band, used ONLY to mint a name. The writer creates
+# one anchor per band row, so every row of this registry already owns a live
+# name (`Comp_Anchor_1` … for rows 4, 5, …); repointing one of THOSE would
+# silently rewrite a registered row's target instead of testing a fresh name,
+# and the corruption would look like a pass. Row 98 is past every row the sheet
+# materializes, so `_anchor_name(98)` is free. The test writes nothing at row
+# 98 — the number exists to name an anchor, not to address a cell.
 _ROGUE_ROW = 98
-_ROGUE_ANCHOR = f"Comp_Anchor_{_ROGUE_ROW - _ROW_FIRST}"
+_ROGUE_ANCHOR = _anchor_name(_ROGUE_ROW)
 
 
 def _artifact_or_skip() -> Path:
@@ -165,6 +182,33 @@ def _same(a, b, *, places: int = 9) -> bool:
     if isinstance(a, (int, float)) and isinstance(b, (int, float)):
         return abs(a - b) < 10 ** (-places)
     return a == b
+
+
+def _cell_state(sheet: xw.Sheet, row: int, column: int, into_row: int) -> str:
+    """One cell's state, asked of Excel: ``"NA"``, ``"BLANK"`` or ``"PRESENT"``.
+
+    **Never read an Excel error back through xlwings.** On this version an error
+    cell and a blank one both arrive as ``None``, so ``cell.value`` cannot tell
+    the loud case (the guard's ``#N/A``) from the deliberate one (an
+    unregistered template row, blank by design) — which is the entire
+    distinction the anchor tests exist to make. It cannot tell either from a
+    real result, either. Excel states the state as text instead, which is the
+    same probe ``test_categorical_model_construction_excel.py`` uses for ``#N/A``
+    propagation, and for the same reason.
+
+    ``"PRESENT"`` rather than "a number": the column probed most here is the
+    Model Sheet column, which holds sheet NAMES, so the third state has to cover
+    text — and a mis-pointed anchor reading a plausible value of EITHER kind is
+    the failure being guarded against.
+
+    ``into_row`` is a scratch row in the SAME column as the cell probed, so the
+    probe can name its subject with ``_abs_ref`` rather than a spelled address.
+    """
+    source = _abs_ref(row, column)
+    sheet.range((into_row, column)).api.Formula2 = (
+        f'=IF(ISNA({source}),"NA",IF({source}="","BLANK","PRESENT"))'
+    )
+    return sheet.range((into_row, column)).value
 
 
 def test_the_registry_rows_read_their_target_sheets(tmp_path: Path) -> None:
@@ -267,6 +311,15 @@ def test_the_shipped_registry_breaks_the_gates_it_claims(tmp_path: Path) -> None
                     f"the reference row's gate in column {column} is not TRUE"
                 )
 
+            # Every expectation must name a registered row. The loop below
+            # `continue`s on an unknown target, so a sheet renamed in the
+            # registry would silently drop that row's coverage — the failure
+            # this assertion exists to make loud.
+            assert set(_GATE_EXPECTATIONS) <= set(registry), (
+                "gate expectations name rows absent from the registry: "
+                f"{sorted(set(_GATE_EXPECTATIONS) - set(registry))}"
+            )
+
             for offset, target in enumerate(registry):
                 expected = _GATE_EXPECTATIONS.get(target)
                 if expected is None:
@@ -305,7 +358,9 @@ def test_a_mis_pointed_anchor_is_loud_and_a_template_row_is_blank() -> None:
       literal, so the readers fail into `NA()`;
     * a **mis-pointed anchor** — a Regression-COLUMN reference on a sheet that is
       not Regression-shaped at all — returns `#N/A` from the reader, which is the
-      guard doing its job: a wrong target can never read a plausible number;
+      guard doing its job: a wrong target can never read a plausible number.
+      Read through Excel (see `_cell_state`), because xlwings hands back the
+      same `None` for this error as for the blank template row above;
     * the same name, repointed at a **real** target, resolves.
 
     The last step is also the add-a-model story under test: repointing one
@@ -331,21 +386,36 @@ def test_a_mis_pointed_anchor_is_loud_and_a_template_row_is_blank() -> None:
             rogue_sheet = "Mileage Data"
             rogue_ref = f"={xlwings_quote(rogue_sheet)}!{_A_RESPONSE_READOUT}"
             _add_name(sheet, _ROGUE_ANCHOR, rogue_ref)
-            probe = sheet.range((template_row + 1, _C_MODEL_SHEET))
+            probe_row = template_row + 1
+            probe = sheet.range((probe_row, _C_MODEL_SHEET))
             probe.api.Formula2 = f"=Comparison_Field({_ROGUE_ANCHOR},1)"
             book.app.api.CalculateFullRebuild()
-            assert probe.value in (-2146826246, "#N/A"), (
-                "a mis-pointed anchor must read #N/A, never a number — got "
-                f"{probe.value!r}"
+            # Read through Excel rather than through xlwings: `.value` returns
+            # None for this error, which is also what it returns for the blank
+            # template row above — so reading it directly cannot tell the loud
+            # case from the deliberate one, and a number would slip past both.
+            state = _cell_state(sheet, probe_row, _C_MODEL_SHEET, probe_row + 1)
+            assert state == "NA", (
+                "a mis-pointed anchor must read #N/A — that is the guard doing "
+                "its job — never a plausible value, and never blank: a BLANK "
+                "here would mean the wrong target read as nothing instead of as "
+                f"an error. Got {state!r}."
             )
 
             # The same name, pointed at a real Regression sheet, resolves.
+            # Asserted against the TARGET sheet's own cell, read directly —
+            # field 1 is the response readout the name itself points at, so
+            # comparing it to the sheet's NAME would be false by construction.
             real = registry[0]
             _add_name(
                 sheet, _ROGUE_ANCHOR, f"={xlwings_quote(real)}!{_A_RESPONSE_READOUT}"
             )
             book.app.api.CalculateFullRebuild()
-            assert probe.value == real
+            target_readout = book.sheets[real].range(_A_RESPONSE_READOUT).value
+            assert _same(probe.value, target_readout), (
+                f"the repointed anchor should read {real}'s own "
+                f"{_A_RESPONSE_READOUT} ({target_readout!r}), got {probe.value!r}"
+            )
         finally:
             book.close()
     finally:
@@ -370,8 +440,8 @@ def test_two_rows_one_method_apart_shade_the_method_axis_only() -> None:
     artifact = _artifact_or_skip()
     registry = tuple(build_test_models._COMPARISON_REGISTRY)
     template_row = _ROW_FIRST + len(registry)
-    reference_anchor = f"Comp_Anchor_{_REFERENCE_ROW - _ROW_FIRST}"
-    template_anchor = f"Comp_Anchor_{template_row - _ROW_FIRST}"
+    reference_anchor = _anchor_name(_REFERENCE_ROW)
+    template_anchor = _anchor_name(template_row)
 
     app = _start_excel_or_skip()
     try:

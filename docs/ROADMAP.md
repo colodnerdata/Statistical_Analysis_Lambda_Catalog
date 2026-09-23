@@ -768,7 +768,7 @@ in the Regression track — it is that track's single most expensive item to tes
 - **Prediction back-transformation, RESOLVED & SHIPPED** — Duan's smearing
   estimator as the default, with a per-cell `Back_Transform_Method` toggle
   (`Duan` default | `Naive`). Naive is biased (Jensen's inequality); Duan is
-  unbiased under iid residuals. Caveat visible on the sheet as a note on the Back-Transform label at AG4.
+  unbiased under iid residuals. Caveat visible on the sheet as a note on the Back-Transform label at AG5.
 - **Model Formula label, RESOLVED & SHIPPED** — the sheet-scoped
   `Model_Formula()` catalog closure, rendered by a labelled readout on
   row 1 of the terminal Constructed Design Matrix zone, right of that zone's heading (header two columns over, readout three columns past the header). It shipped as an
@@ -784,7 +784,7 @@ in the Regression track — it is that track's single most expensive item to tes
   already emits `Ln(name)` per logged predictor, level-qualified dummy
   names, and `left × right` interaction names.
 - **`Comparison_*` named ranges, RESOLVED & SHIPPED** — sheet-scoped
-  `Comparison_Anchor` (`$AF$2`), `Comparison_Headline_GoF` (`$AH$6:$AH$8`),
+  `Comparison_Anchor` (`$AF$3`), `Comparison_Headline_GoF` (`$AH$7:$AH$9`),
   `Comparison_Model_Formula` (the Model Formula readout in the §4b band).
   v3.4 Model Comparison reads from these surfaces — by NAME, which is why
   moving the readout off `$AB$2` cost its consumer nothing.

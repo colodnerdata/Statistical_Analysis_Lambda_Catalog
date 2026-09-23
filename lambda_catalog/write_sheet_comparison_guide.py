@@ -658,7 +658,68 @@ _ABSENCES: list[list[str]] = [
 ]
 
 
-# ── 10. Where to go next ──────────────────────────────────────────────────────
+# ── 10. Using the Model Comparison sheet ──────────────────────────────────────
+# The hands-on half: how a new model gets onto the sheet at all. The first row is
+# the one that goes wrong silently — a model sheet built by pasting cells reads
+# the ORIGINAL sheet's sheet-scoped names, so it shows the old model's numbers.
+_USING_THE_SHEET: list[list[str]] = [
+    [
+        "Create another model — copy the whole sheet",
+        "Right-click the sheet tab of the Regression template sheet, or of any "
+        "model sheet already fitted, then choose Move or Copy… and tick Create a "
+        "copy.",
+        "Rename the copy, then edit its Model Specification. A sheet copied this "
+        "way arrives with its own set of sheet-scoped names — the spec wiring, the "
+        "constructor closures, the chart ranges and the Comparison_Anchor the "
+        "registry reads — every one scoped to the new sheet, so the copy fits its "
+        "own specification and nothing else.",
+        "Never select the cells and copy, or cut, and paste them onto a blank "
+        "sheet. The formulas come across but the sheet-scoped names do not, so "
+        "every formula keeps reading the ORIGINAL sheet: the new sheet shows the "
+        "old model's numbers. Nothing errors — it is a silent wrong answer.",
+    ],
+    [
+        "Point a spare row at the new model",
+        "Formulas > Name Manager, with the Model Comparison sheet active. The "
+        "Anchor column on that sheet shows the address each row reads.",
+        "Every row owns a sheet-scoped name, Comp_Anchor_1, Comp_Anchor_2 and so "
+        "on, numbered from the first data row (row 4 is Comp_Anchor_1). The build "
+        "ships three spare rows whose anchors point at the sheet's own $A$1. Edit "
+        "the first spare one so Refers To reads ='<new sheet>'!$AF$3 — the model "
+        "sheet's response-label cell — and every cell in the row fills in.",
+        "A spare row reads blank until it is pointed at a model sheet, and a "
+        "mis-pointed row stays blank rather than reading an unrelated cell: the "
+        "readers check for the MODEL SPECIFICATION heading at the target's A1 "
+        "before reading anything.",
+    ],
+    [
+        "Add a row when the spare rows run out",
+        "Name Manager first, then the first empty row directly below the table.",
+        "1. Name Manager > New: Name Comp_Anchor_<n+1>, the next unused number; "
+        "Scope Model Comparison, not Workbook; Refers To ='<model sheet>'!$AF$3. "
+        "2. Select the table's last row across every column and copy it down one "
+        "row. 3. With only the new row selected, Find & Replace Comp_Anchor_<n> "
+        "with Comp_Anchor_<n+1>, looking in Formulas.",
+        "A copied row still reads the name the row above it reads, so skipping "
+        "step 3 duplicates the previous model instead of adding one. Replace "
+        "within the new row only. The gate flags, the row-2 verdicts and the zone "
+        "shading already reach row 103, so a new row down to there is counted with "
+        "no other edit.",
+    ],
+    [
+        "Choose the reference model",
+        "The first data row, row 4 — the name Comp_Anchor_1.",
+        "Every gate column (Same Set?, Same Space?, Same Method?, Same Inputs?) "
+        "compares its row against this one. To compare the others against a "
+        "different model, point Comp_Anchor_1 at that model's sheet.",
+        "The row-2 verdicts count how many rows agree with the reference, so a "
+        "reference that is itself the odd one out shades every other row. Pick "
+        "the specification the rest are variations on.",
+    ],
+]
+
+
+# ── 11. Where to go next ──────────────────────────────────────────────────────
 _SIBLINGS: list[list[str]] = [
     [
         "Regression Instructions",
@@ -856,7 +917,17 @@ def _write_template_sheet(workbook: xw.Book) -> None:
         r += 1
     r += 1
 
-    # ── 10. Where to go next ───────────────────────────────────────────────────
+    # ── 10. Using the Model Comparison sheet ────────────────────────────────────
+    _subheading(sheet, r, "USING THE MODEL COMPARISON SHEET — ADDING MODELS AND ROWS")
+    r += 1
+    _table_header_row(sheet, r, ["Task", "Where", "What to do", "Why it matters"])
+    r += 1
+    for vals in _USING_THE_SHEET:
+        _row(sheet, r, vals)
+        r += 1
+    r += 1
+
+    # ── 11. Where to go next ───────────────────────────────────────────────────
     _subheading(sheet, r, "WHERE TO GO NEXT ON THE OTHER REFERENCE SHEETS", cols=2)
     r += 1
     _table_header_row(sheet, r, ["Sheet", "What it answers"])

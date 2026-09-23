@@ -801,7 +801,7 @@ One statistic (index 1-24) from another Regression sheet. Pass a reference to th
 Arguments:
 
 - **flags** — The comparison-flag column as a range — TRUE where the row agrees with the reference row, FALSE where it does not, and blank on an unregistered row. Blank rows are counted as neither, so a template row never inflates the total.
-- **what** — The noun naming the axis being compared, as it should read in the verdict — "comparison set" or "response space".
+- **what** — The noun naming the axis being compared, as it should read in the verdict — "comparison set", "response space", "back-transform method" or "prediction point".
 
 Comparison_Flag_Status is the row-2 verdict under a comparison-flag column on the Model Comparison sheet. Three states, and the empty one is deliberate: with no row registered there is nothing to compare, so the cell stays blank rather than announcing a vacuous agreement — the same blank-when-legal grammar the Regression sheet's status row uses.
 
@@ -809,7 +809,7 @@ Counting registered rows as COUNTIF(TRUE)+COUNTIF(FALSE) rather than COUNTA is w
 
 "Outside" is counted only for FALSE, never for "", so the two states stay distinct: a row that cannot be read yet is not a row that disagrees.
 
-ONE function serves all three status cells on the sheet. The counting mechanics — how a row counts, what empty means — are identical for every axis; only the noun differs, so the noun is the argument and the flag column travels with it. A sheet-scoped LAMBDA per axis would triplicate the counting rule and let the three drift apart.
+ONE function serves all four status cells on the sheet. The counting mechanics — how a row counts, what empty means — are identical for every axis; only the noun differs, so the noun is the argument and the flag column travels with it. A sheet-scoped LAMBDA per axis would repeat the counting rule four times and let the four drift apart.
 
 Returns: A one-line verdict over the flag column: "all N registered rows share one <what>", "<k> of N registered rows differ in <what>", or "" when no row is registered.
 

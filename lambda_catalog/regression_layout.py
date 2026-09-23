@@ -343,6 +343,29 @@ _A_UNIT_GOF_TRIPLET = (
 _BACK_TRANSFORM_METHODS = ("Duan", "Naive")
 _BACK_TRANSFORM_DEFAULT = _BACK_TRANSFORM_METHODS[0]
 
+# ── Cell display formats, shared by the two sheets that show these numbers ────
+#
+# The v3.4 Model Comparison sheet mirrors individual statistics off a Regression
+# sheet, and `tests/test_comparison_excel.py` asserts the VALUES are equal
+# cell-for-cell. Display is the other half of that claim. A mirrored statistic
+# drawn at a different precision from its source invites the reader to see a
+# difference that is not there — 976.1166 beside 976.1 — and the comparison
+# sheet's whole claim is that these ARE the target sheet's own numbers. So the
+# format travels with the statistic.
+#
+# These are the formats the Regression sheet applies to the cells in question;
+# `write_sheet_comparison.py` formats its mirrored columns from them, and
+# `tests/test_sheet_comparison_sheet.py` drives BOTH writers and asserts the two
+# agree for every mirrored statistic, so a drift on either side fails the suite
+# rather than shipping two readings of one number.
+_FMT_COUNT = "0"                  # a count — n, k: an integer, never rounded
+_FMT_STAT = "0.0000"              # the default goodness-of-fit precision
+_FMT_F_STATISTIC = "0.0"          # the ANOVA F, one decimal as its own cell
+# A p-value, in scientific notation on purpose: 1 dp over a range of orders of
+# magnitude keeps 3E-08 and 4E-05 legible AND distinct, where four fixed
+# decimals renders both as 0.0000 — a difference erased, not merely rounded.
+_FMT_SIGNIFICANCE_F = "0.0E+00"
+
 # Content zones as (first_col, last_col) spans — the single source of truth for
 # the outline groups. Each pair becomes one collapsible column group; the gap
 # columns between them (below) stay ungrouped so the zones collapse

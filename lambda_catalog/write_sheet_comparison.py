@@ -83,6 +83,10 @@ from .regression_layout import (
     _A_RESPONSE_READOUT,
     _C_AF,
     _C_AK,
+    _FMT_COUNT,
+    _FMT_F_STATISTIC,
+    _FMT_SIGNIFICANCE_F,
+    _FMT_STAT,
     _PRED_INPUT_FIRST_ROW,
     _PRED_INPUT_LAST_ROW,
     _ROW_RESPONSE_READOUT,
@@ -128,8 +132,9 @@ _TEMPLATE_ROWS = 3
 _ROW_LAST = _ROW_FIRST + _REGISTERED_ROWS + _TEMPLATE_ROWS - 1
 
 # Where the flag bands, number formats and conditional formats stop. Generous on
-# purpose: the flag bands are what the row-2 verdicts count over, so a row a
-# user adds by copying one must fall inside them or the verdict would ignore it.
+# purpose: these bands are what the row-2 verdicts count over, so the writer can
+# ship additional pre-wired template rows (or be rebuilt with a larger
+# `template_rows`) without having to resize every rule/range.
 # Blank cells are counted as neither TRUE nor FALSE, so a wide band costs
 # nothing at calculation time.
 _BAND_LAST_ROW = 103
@@ -370,31 +375,48 @@ assert tuple(col for col, _ in _HEADERS) == _CONTENT_COLUMNS, (
     "the header list must cover every content column, in layout order"
 )
 
-# Number formats, keyed on the layout constant. Counts are integers; everything
-# else is a statistic whose scale varies by orders of magnitude across models —
-# four decimals is the display convention the Regression sheet already uses for
-# the same numbers, so a value read here matches the value read there.
+# Number formats, keyed on the layout constant, drawn from the `_FMT_*` table in
+# `regression_layout.py` — the formats the **Regression sheet** applies to the
+# same cells.
+#
+# That sharing is the point, not tidiness. Every entry below except the two
+# counts is a statistic MIRRORED off a target Regression sheet, and this sheet's
+# whole claim is that these are that sheet's own numbers. Showing one of them at
+# a different precision — 976.1166 beside 976.1 — invites the reader to see a
+# difference that is not there, and the pair exists precisely so differences can
+# be read. So each format travels with its statistic rather than being chosen
+# per sheet.
+#
+# Two entries are deliberately not mirrored numbers:
+#   * `_C_DESIGN_COLUMNS` (k) reads the spec block's Σ total, which the spec
+#     block leaves General. It is an integer count, so `_FMT_COUNT` renders it
+#     identically, and pinning a format keeps this column's own reading uniform.
+#   * `_C_OBSERVATIONS` (n) reads AB9, which IS formatted — as `_FMT_COUNT`.
+#
+# `tests/test_sheet_comparison_sheet.py` drives BOTH writers and asserts they
+# emit the same format for every mirrored statistic, so a drift on either side
+# fails the suite instead of shipping two readings of one number.
 _NUMBER_FORMATS: tuple[tuple[int, str], ...] = (
-    (_C_OBSERVATIONS, "0"),
-    (_C_DESIGN_COLUMNS, "0"),
-    (_C_UNIT_R_SQUARED, "0.0000"),
-    (_C_UNIT_ADJUSTED_R_SQUARED, "0.0000"),
-    (_C_UNIT_RMSE, "0.0000"),
-    (_C_F_STATISTIC, "0.0000"),
-    (_C_SIGNIFICANCE_F, "0.0000"),
-    (_C_R_SQUARED, "0.0000"),
-    (_C_ADJUSTED_R_SQUARED, "0.0000"),
-    (_C_STANDARD_ERROR, "0.0000"),
-    (_C_AIC, "0.00"),
-    (_C_BIC, "0.00"),
-    (_C_AICC, "0.00"),
-    (_C_PRESS, "0.00"),
-    (_C_PRESS_R_SQUARED, "0.0000"),
-    (_C_PRED_POINT, "0.0000"),
-    (_C_PRED_CI_LOWER, "0.0000"),
-    (_C_PRED_CI_UPPER, "0.0000"),
-    (_C_PRED_PI_LOWER, "0.0000"),
-    (_C_PRED_PI_UPPER, "0.0000"),
+    (_C_OBSERVATIONS, _FMT_COUNT),
+    (_C_DESIGN_COLUMNS, _FMT_COUNT),
+    (_C_UNIT_R_SQUARED, _FMT_STAT),
+    (_C_UNIT_ADJUSTED_R_SQUARED, _FMT_STAT),
+    (_C_UNIT_RMSE, _FMT_STAT),
+    (_C_F_STATISTIC, _FMT_F_STATISTIC),
+    (_C_SIGNIFICANCE_F, _FMT_SIGNIFICANCE_F),
+    (_C_R_SQUARED, _FMT_STAT),
+    (_C_ADJUSTED_R_SQUARED, _FMT_STAT),
+    (_C_STANDARD_ERROR, _FMT_STAT),
+    (_C_AIC, _FMT_STAT),
+    (_C_BIC, _FMT_STAT),
+    (_C_AICC, _FMT_STAT),
+    (_C_PRESS, _FMT_STAT),
+    (_C_PRESS_R_SQUARED, _FMT_STAT),
+    (_C_PRED_POINT, _FMT_STAT),
+    (_C_PRED_CI_LOWER, _FMT_STAT),
+    (_C_PRED_CI_UPPER, _FMT_STAT),
+    (_C_PRED_PI_LOWER, _FMT_STAT),
+    (_C_PRED_PI_UPPER, _FMT_STAT),
 )
 assert {col for col, _ in _NUMBER_FORMATS} <= set(_CONTENT_COLUMNS)
 
@@ -515,10 +537,21 @@ def _write_registry_row(sheet: xw.Sheet, row: int) -> None:
     # happily return THIS sheet's name for a template anchor pointing here.
     readable = f"NOT(ISNA(Comparison_Field({name},{_INDEX_RESPONSE})))"
 
-    # The target's own sheet name, for the label and the hyperlink — the one
-    # legitimate use of CELL("filename") in this design: as a LABEL, never to
-    # build a reference. It is empty on an unsaved workbook, which the LET's
-    # `nm=""` branch handles rather than emitting a broken hyperlink.
+    # The target's own sheet name, for the label and the hyperlink. CELL is the
+    # only way to ask a REFERENCE what sheet it lives on, and the name it returns
+    # is a LABEL first: the whole point of `Comp_Anchor_<n>` is that the row
+    # says which sheet it reads, so a repointed name is visible on the sheet
+    # rather than only in the Name Manager. The hyperlink is built from that
+    # name, NOT from the `[Book]Sheet!cell` path CELL hands back — nothing here
+    # derives an address from CELL, and `nm` is empty on an unsaved workbook,
+    # which the LET's `nm=""` branch handles rather than emitting a broken link.
+    #
+    # The quoting is the Excel-side mirror of `workbook_helpers.quoted_sheet_name`:
+    # a sheet name may contain an apostrophe (Excel's own "Bob's Data"), and every
+    # apostrophe inside a quoted sheet name must be doubled or the `'...'!`
+    # reference terminates early and the link points at a sheet that does not
+    # exist. Only the LINK LOCATION is escaped — the display argument shows the
+    # real name, apostrophes and all.
     f(
         sheet,
         row,
@@ -526,7 +559,7 @@ def _write_registry_row(sheet: xw.Sheet, row: int) -> None:
         "=LET("
         f"ok,{readable},"
         f'nm,IFERROR(TEXTAFTER(CELL("filename",{name}),"]"),""),'
-        f'IF(ok,IF(nm="","",HYPERLINK("#\'"&nm&"\'!'
+        f'IF(ok,IF(nm="","",HYPERLINK("#\'"&SUBSTITUTE(nm,"\'","\'\'")&"\'!'
         f'{_abs_row_ref(_C_MODEL_SHEET, 1)}",nm)),"")'
         ")",
     )

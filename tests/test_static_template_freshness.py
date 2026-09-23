@@ -97,7 +97,7 @@ _CONTENT_CONSTANTS: dict[str, tuple[str, ...]] = {
     "write_sheet_comparison_guide.py": (
         "_PREFLIGHT", "_CHANGE_LEDGER", "_QUESTIONS", "_LADDER", "_STABILITY",
         "_ASSUMPTION_EVIDENCE", "_INVALID_MOVES", "_SPEC_STEPS", "_ABSENCES",
-        "_SIBLINGS",
+        "_USING_THE_SHEET", "_SIBLINGS",
     ),
 }
 

@@ -56,14 +56,14 @@ Sheet layout
   Col BE–BN      — Q-Q plot data (P, sorted Sample, 8 theoretical-quantile columns)
   Col BP–BS      — Weibull fit zone: both profile stages side by side (4 cols)
   Col BU–BX      — Gamma fit zone: both profile stages side by side (4 cols)
-  Col BY–CD      — Beta fit zone: both Full_Factorial stages side by side (6 cols)
+  Col BZ–CE      — Beta fit zone: both Full_Factorial stages side by side (6 cols)
 
   One zone per distribution, with that fit's two stages SIDE BY SIDE inside it
   (S1 left, S2 right), so a dynamic Beta body height (N² rows) never makes a
   Stage 2 row anchor depend on Stage 1's spill.  The fit zones come last because
   they are the only ones whose width is a tunable (_N_GRID / _N_PROFILE), so a
-  resize displaces nothing.  Gamma sits flush against Beta (no gutter) so the two
-  read as one block.
+  resize displaces nothing.  Every zone, Gamma included, is followed by one gap
+  column (BO, BT, BY); Beta, the last zone, has none after it.
 
   Charts anchored under the fitting table:
     G14, G34, G54          — histogram combo charts (count bars + 8 fitted overlay lines)
@@ -73,8 +73,9 @@ Sheet layout
   Charts anchored ABOVE their fit zone's body, in the band between the control
   block and the body header (rows 13–30), one zone wide:
     BP13:BS30, BU13:BX30   — Weibull and Gamma profile-NLL charts, each plotting
-                             both stages (Stage 2 with + markers). BY13:CD30 is
-                             reserved blank for a potential future Beta chart.
+                             both stages (Stage 2 with + markers). Beta's band
+                             holds two scatter charts, Profile NLL vs Alpha and
+                             Profile NLL vs Beta.
 
 Sheet-scoped named ranges
 ─────────────────────────
@@ -85,10 +86,10 @@ Sheet-scoped named ranges
   UV_*_<Dist>_Expected — histogram CDF-delta column × Count stat cell (expected
                    counts); feeds the fitted-distribution overlay line series
   UV_QQ_Sample, UV_QQ_<Dist> — OFFSET-based Q-Q chart column ranges
-  UV_WB_S1/S2    — Stage 1/2 Weibull profile-NLL bodies (20×1)
-  UV_WB_S1/S2_Axis — Stage 1/2 Weibull shape axes (20×1)
-  UV_GAMMA_S1/S2  — Stage 1/2 Gamma profile-NLL bodies (20×1)
-  UV_GAMMA_S1/S2_Axis — Stage 1/2 Gamma shape axes (20×1)
+  UV_WB_S1/S2    — Stage 1/2 Weibull profile-NLL bodies (N×1)
+  UV_WB_S1/S2_Axis — Stage 1/2 Weibull shape axes (N×1)
+  UV_GAMMA_S1/S2  — Stage 1/2 Gamma profile-NLL bodies (N×1)
+  UV_GAMMA_S1/S2_Axis — Stage 1/2 Gamma shape axes (N×1)
   UV_BETA_S{1,2}_{Alpha,Beta,NLL} — Stage 1/2 Beta Full_Factorial body columns
                    (N²×1 each), OFFSET ranges sized by the in-sheet Grid Points
                    cell so they track the live grid. Replaces the old Data-Table
@@ -223,8 +224,9 @@ _HIST_BLOCKS = [
 #   • Weibull and Gamma search ONE dimension (the shape). Their scale / rate
 #     parameter is profiled out in closed form, so each stage is an
 #     Full_Factorial(N, Min, Max) axis → N rows — the d=1 reduction of the same
-#     grid Beta uses — beside a BYROW profile-NLL column (Step documents the
-#     spacing and brackets Stage 2; the axis reads Min/Max/N directly).
+#     grid Beta uses — beside a BYROW profile-NLL column.  Stage 2 brackets
+#     Stage 1's optimum by ±1 step, (Max−Min)/(N−1); the axis reads Min/Max/N
+#     directly.
 #     _N_PROFILE is the default written into that cell.
 #   • Beta searches TWO dimensions (both conditional MLEs involve digamma).
 #     Each stage is a Full_Factorial(N × N) grid → N² rows in two columns
@@ -241,13 +243,13 @@ _MIN_GRID_POINTS = MIN_GRID_POINTS
 
 # ── Fit-zone row skeleton (offsets from _ROW_FIT_ZONE = 1) ───────────────────
 # Every fit zone uses the same skeleton: a control field-list, a chart band,
-# then the body.  The profile-NLL chart sits ABOVE the body (rows 13–30),
-# between the control block and the body — the reverse of the old layout,
-# which put it below.  Beta reserves the same band blank for a future chart.
+# then the body.  The profile-NLL charts sit ABOVE the body (rows 13–30),
+# between the control block and the body; Beta's band holds its two scatter
+# charts.
 _R_TITLE         = 0    # row 1 — fit title (merged across the zone)
 _R_STAGE_SUBHDR  = 2    # row 3 — "Stage 1 (Wide Scope)" / "Stage 2 (refined)"
 _R_CONTROL_FIRST = 3    # row 4 — first control field
-_R_CHART_TOP     = 12   # row 13 — chart top (Weibull/Gamma); reserved blank (Beta)
+_R_CHART_TOP     = 12   # row 13 — chart top (profile-NLL and Beta scatter charts)
 _R_CHART_BOTTOM  = 29   # row 30 — chart bottom
 _R_BODY_STAGE_HDR = 29  # row 30 — Stage 1 / Stage 2 centered across each stage span
 _R_BODY_HDR      = 30   # row 31 — array headers
@@ -267,8 +269,9 @@ _PR_C_S2     = 2   # S2 control value / S2 axis body
 _PR_C_S2_NLL = 3   # S2 NLL body (no control cell)
 _PR_W        = 4   # profile zone width
 
-# Profile-zone control field rows (offsets 3–10 → rows 4–11).  Recovery and the
-# profiled-out partner use the same Grid_Argument_Minimum mechanism as before.
+# Profile-zone control field rows (offsets 3–9 → rows 4–10).  Min NLL is MIN over
+# the stage's NLL body, the searched optimum is Min_NLL_Params(axis, body), and
+# the profiled-out partner is its closed form at that optimum.
 _PR_R_GRID_POINTS = 3   # row 4 — Grid Points (default _N_PROFILE; editable live)
 _PR_R_MIN         = 4
 _PR_R_MAX         = 5
@@ -420,10 +423,9 @@ _QQ_CHART_BANDS = (
 )
 
 # Each profile-NLL chart sits ABOVE its fit zone's body, in the band between the
-# control block (rows 4–11/12) and the body header (row 32): the curve it draws
-# is the body column directly below it, so the two read together. The chart is
-# one zone wide. Beta reserves the same band blank (BY13:CD30) for a potential
-# future chart.
+# control block and the body header (row 31): the curve it draws is the body
+# column directly below it, so the two read together. The chart is one zone
+# wide. Beta's band holds its two scatter charts (Profile NLL vs Alpha / vs Beta).
 _ROW_PROFILE_CHART  = _ROW_FIT_ZONE + _R_CHART_TOP    # 13
 _PROFILE_CHART_ROWS = _R_CHART_BOTTOM - _R_CHART_TOP + 1   # 18 (rows 13–30)
 
@@ -1438,17 +1440,18 @@ def _write_qq_charts(sheet: xw.Sheet) -> None:
 #            (_R_STAGE_SUBHDR), one over each stage's value column(s)
 #   r0+3…  : control field-list — label in col0, Stage 1 value(s) and Stage 2
 #            value(s) in the value columns (_R_CONTROL_FIRST …)
-#   r0+12..29 : profile-NLL chart (Weibull/Gamma), one zone wide, ABOVE the
-#            body (_R_CHART_TOP .. _R_CHART_BOTTOM).  Beta reserves this band
-#            blank for a potential future chart.
-#   r0+31  : body column headers (_R_BODY_HDR)
-#   r0+32… : body — N rows for Weibull/Gamma; N² rows for Beta (_R_BODY)
+#   r0+12..29 : charts, ABOVE the body (_R_CHART_TOP .. _R_CHART_BOTTOM) —
+#            the profile-NLL chart (Weibull/Gamma, one zone wide) or Beta's two
+#            scatter charts
+#   r0+30  : body column headers (_R_BODY_HDR)
+#   r0+31… : body — N rows for Weibull/Gamma; N² rows for Beta (_R_BODY)
 #
 # Two writers, one body shape.  Each stage is a Full_Factorial spill beside a
 # BYROW NLL spill that reads it through the `#` operator, so the NLL column is
 # always exactly as tall as the grid it scores and both follow the stage's live
-# Grid Points cell.  OFFSET named ranges track that same cell, and recovery is
-# Grid_Argument_Minimum over the materialized NLL column.
+# Grid Points cell.  OFFSET named ranges track that same cell.  Recovery reads
+# the materialized NLL column: Min NLL is MIN over it and the optimum is
+# Min_NLL_Params; Grid_Argument_Minimum drives the boundary-guard CF only.
 #   _write_profile_fit  — Weibull/Gamma, 4-col zone.  One dimension searched;
 #            scale/rate profiled out in closed form.  Body = an
 #            Full_Factorial(N, Min, Max) axis (N rows) beside its BYROW column.
@@ -1822,12 +1825,13 @@ def _write_beta_fit(sheet: xw.Sheet, beta_grid_size: int = _N_GRID) -> dict:
     """Write both stages of Beta's 2-D Full_Factorial search, side by side.
 
     6-col zone (3 cols/stage: Alpha | Beta | NLL): each stage's body is TWO
-    spills at row 33 — a ``Full_Factorial`` grid (N²×2, Alpha | Beta) across the
+    spills at row 32 — a ``Full_Factorial`` grid (N²×2, Alpha | Beta) across the
     stage's first two cols, and a ``BYROW`` NLL spill in the third col that
     reads the grid via the ``#`` operator — so the two stages grow down
     independently.  N is an in-sheet cell (editable live); OFFSET named ranges
-    track N².  Recovery is ``Grid_Argument_Minimum`` over the materialized NLL
-    column, the same mechanism the profile fits use.
+    track N².  Recovery reads the materialized NLL column, as the profile fits
+    do: Min NLL is ``MIN`` over it and Optimal (α, β) is ``Min_NLL_Params``;
+    ``Grid_Argument_Minimum`` drives only the boundary-guard CF.
     """
     sname = sheet.name
     n = beta_grid_size
@@ -2000,17 +2004,17 @@ def _write_beta_fit(sheet: xw.Sheet, beta_grid_size: int = _N_GRID) -> dict:
 
     for name, col_off, n_ref, comment in (
         ("UV_Profile_BETA_S1_Alpha_Axis", _BETA_C_LABEL, s1_n,
-         "Beta fit Stage 1: Alpha values over the N² grid — reserved for the future Beta chart"),
+         "Beta fit Stage 1: Alpha values over the N² grid — X values for the Beta Profile NLL vs Alpha chart"),
         ("UV_Profile_BETA_S1_Beta_Axis", _BETA_C_S1_A, s1_n,
-         "Beta fit Stage 1: Beta values over the N² grid — reserved for the future Beta chart"),
+         "Beta fit Stage 1: Beta values over the N² grid — X values for the Beta Profile NLL vs Beta chart"),
         ("UV_Profile_BETA_S1_NLL", _BETA_C_S1_B, s1_n,
-         "Beta fit Stage 1: NLL values over the N² grid — reserved for the future Beta chart"),
+         "Beta fit Stage 1: NLL values over the N² grid — Y values for both Beta scatter charts"),
         ("UV_Profile_BETA_S2_Alpha_Axis", _BETA_C_S2_A, s2_n,
-         "Beta fit Stage 2 (refined): Alpha values over the N² grid — reserved for the future Beta chart"),
+         "Beta fit Stage 2 (refined): Alpha values over the N² grid — X values for the Beta Profile NLL vs Alpha chart"),
         ("UV_Profile_BETA_S2_Beta_Axis", _BETA_C_S2_B, s2_n,
-         "Beta fit Stage 2 (refined): Beta values over the N² grid — reserved for the future Beta chart"),
+         "Beta fit Stage 2 (refined): Beta values over the N² grid — X values for the Beta Profile NLL vs Beta chart"),
         ("UV_Profile_BETA_S2_NLL", _BETA_C_S2_NLL, s2_n,
-         "Beta fit Stage 2 (refined): NLL values over the N² grid — reserved for the future Beta chart"),
+         "Beta fit Stage 2 (refined): NLL values over the N² grid — Y values for both Beta scatter charts"),
     ):
         cl = col_letter(c0 + col_off)
         _drop_wb_name(sheet, name)
@@ -2126,7 +2130,7 @@ def _write_profile_charts(sheet: xw.Sheet) -> None:
     """Insert the Weibull/Gamma profile charts and the two Beta scatter charts.
 
     One chart per one-dimensional fit, anchored ABOVE its fit zone's body — in
-    the band between the control block (rows 4–11) and the body header (row 32),
+    the band between the control block and the body header (row 31),
     one zone wide — so the curve and the body column it is drawn from read
     together. Beta uses two charts in the same band: one for Profile NLL vs
     Alpha and one for Profile NLL vs Beta.

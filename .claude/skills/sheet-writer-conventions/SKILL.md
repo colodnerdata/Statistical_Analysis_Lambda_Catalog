@@ -5,7 +5,7 @@ description: Index of recurring mistakes when writing or editing any write_sheet
 
 # Sheet writer conventions — where each rule lives
 
-Every rule below is stated in full in `AGENTS.md`, which is always in context, and at more length in `CONTRIBUTING.md`. **This file is an index, not a second copy:** read the canonical section rather than trusting a paraphrase here. A paraphrase of a rule rots silently — nothing checks this file, and a stale line number in it is exactly how the previous version went wrong.
+Every rule below is stated in full in `AGENTS.md`, which is always in context, and at more length in `CONTRIBUTING.md`. **This file is an index, not a second copy:** read the canonical section rather than trusting a paraphrase here. A paraphrase of a rule rots silently, and nothing checks this file — so cite sections and symbols here, never line numbers.
 
 | About to… | Headline rule | Canonical section |
 |---|---|---|

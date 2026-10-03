@@ -18,4 +18,4 @@ This repo's verification has two layers, and only one runs in CI.
 **If Excel isn't available in the current environment, say so explicitly rather than claiming verification passed.** Passing the pure-Python unit suite or Layer 1 is not the same claim as "Layer 2 verified this on a machine with Excel" — don't let those get conflated in a status update or PR description.
 
 ## Build-then-verify order matters
-`poe verify` builds first, then screens (Layer 1) — deliberately. Screening a stale `dist/` artifact before rebuilding has previously passed clean even when the rebuild itself broke something. Never run a verification pass against a `dist/` you haven't just rebuilt.
+`poe verify` builds first, then screens (Layer 1) — deliberately: Layer 1 reads whatever sits in `dist/`, so screening before the rebuild checks the previous artifact and can pass while the rebuild is broken. Never run a verification pass against a `dist/` you haven't just rebuilt.

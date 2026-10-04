@@ -297,6 +297,10 @@ uv run python scripts/build_production.py --verify --no-launch
 
 There are two verifier layers with different speeds and different scopes. Run them in this order when in doubt; either can be skipped if the other has been run recently.
 
+![The poe verify ladder — the deep builds rewrite the artifacts, then the headless screen reads their output](docs/images/verify-layers.svg)
+
+*The `poe verify` ladder. The two Layer-2 builds run in parallel — `verify-deep` rewrites `dist/Lambda_Library.xlsx`, `verify-test-models` writes the root-level `Lambda_Library_TestModels.xlsx` — and then the Layer-1 screen reads `dist/Lambda_Library.xlsx` as a zipfile. Only the `dist` artifact feeds the screen, and the order is the whole point: a screen-first run would validate the stale committed copy instead of the fresh rebuild (see [`poe verify`](#poe-verify)).*
+
 ### Layer 1 — headless structural check
 
 Pure `zipfile` + `lxml` reads of the produced `.xlsx`. Runs in <1 s on Linux CI without Excel. Catches packaging regressions the unit-test suite misses: dangling defined names, `#REF!`/`#NAME?` cached-value literals, broken `[Content_Types].xml`/`workbook.xml.rels`, orphan chart-relationship targets, charts whose references name a sheet other than the one they sit on (SERIES formulas and the `c15:datalabelsRange` "Value From Cells" extension alike), `localSheetId` out of range, sheet drift.

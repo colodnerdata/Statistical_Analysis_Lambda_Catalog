@@ -1,0 +1,93 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 456" role="img" aria-label="The poe verify ladder: the two Layer-2 Excel builds run in parallel and rewrite the artifacts, then the Layer-1 screen verify-headless reads dist/Lambda_Library.xlsx as a zipfile. A screen-first order would read the stale committed copy instead of the fresh rebuild.">
+  <defs>
+    <marker id="aI" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0 L10 5 L0 10 z" fill="#24292f"/>
+    </marker>
+    <marker id="aG" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0 L10 5 L0 10 z" fill="#1a7f37"/>
+    </marker>
+    <marker id="aR" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0 L10 5 L0 10 z" fill="#cf222e"/>
+    </marker>
+  </defs>
+
+  <rect width="980" height="456" fill="#ffffff"/>
+
+  <!-- Title -->
+  <text x="24" y="34" font-family="system-ui, -apple-system, 'Segoe UI', Arial, sans-serif" font-size="15" font-weight="700" fill="#24292f">poe verify — builds first, screen last</text>
+  <text x="24" y="52" font-family="system-ui, -apple-system, 'Segoe UI', Arial, sans-serif" font-size="11" fill="#57606a">verify-deep rewrites dist/Lambda_Library.xlsx and verify-headless screens it after — a screen-first order would validate the stale committed copy instead.</text>
+
+  <!-- Zone headers -->
+  <text x="24" y="90" font-family="system-ui, -apple-system, 'Segoe UI', Arial, sans-serif" font-size="11" font-weight="700" letter-spacing="0.5" fill="#24292f">STAGE 1 · PARALLEL BUILDS</text>
+  <text x="24" y="104" font-family="system-ui, -apple-system, 'Segoe UI', Arial, sans-serif" font-size="10" fill="#57606a">needs desktop Excel · not in CI</text>
+  <text x="400" y="90" font-family="system-ui, -apple-system, 'Segoe UI', Arial, sans-serif" font-size="11" font-weight="700" letter-spacing="0.5" fill="#24292f">THE ARTIFACTS</text>
+  <text x="400" y="104" font-family="system-ui, -apple-system, 'Segoe UI', Arial, sans-serif" font-size="10" fill="#57606a">what stage 1 wrote</text>
+  <text x="686" y="90" font-family="system-ui, -apple-system, 'Segoe UI', Arial, sans-serif" font-size="11" font-weight="700" letter-spacing="0.5" fill="#24292f">STAGE 2 · THE SCREEN</text>
+  <text x="686" y="104" font-family="system-ui, -apple-system, 'Segoe UI', Arial, sans-serif" font-size="10" fill="#57606a">no Excel · &lt; 1 s · runs in CI</text>
+
+  <!-- Stage 1: build boxes -->
+  <rect x="24" y="122" width="300" height="96" rx="6" fill="#f6f8fa" stroke="#d0d7de"/>
+  <text x="36" y="144" font-family="ui-monospace, 'Cascadia Mono', Consolas, 'Courier New', monospace" font-size="12.5" font-weight="700" fill="#24292f">verify-deep</text>
+  <rect x="256" y="130" width="56" height="16" rx="8" fill="#ffffff" stroke="#d0d7de"/>
+  <text x="284" y="141.5" font-family="system-ui, -apple-system, 'Segoe UI', Arial, sans-serif" font-size="9" font-weight="700" letter-spacing="0.5" fill="#57606a" text-anchor="middle">LAYER 2</text>
+  <text x="36" y="165" font-family="ui-monospace, 'Cascadia Mono', Consolas, 'Courier New', monospace" font-size="10.5" fill="#24292f">build_production.py --verify --no-launch</text>
+  <text x="36" y="182" font-family="system-ui, -apple-system, 'Segoe UI', Arial, sans-serif" font-size="10.5" fill="#57606a">rebuild → recalc → spec-verify</text>
+  <text x="36" y="199" font-family="system-ui, -apple-system, 'Segoe UI', Arial, sans-serif" font-size="10.5" fill="#57606a">tee transcript → excel-only-runs/</text>
+
+  <rect x="24" y="238" width="300" height="96" rx="6" fill="#f6f8fa" stroke="#d0d7de"/>
+  <text x="36" y="260" font-family="ui-monospace, 'Cascadia Mono', Consolas, 'Courier New', monospace" font-size="12.5" font-weight="700" fill="#24292f">verify-test-models</text>
+  <rect x="256" y="246" width="56" height="16" rx="8" fill="#ffffff" stroke="#d0d7de"/>
+  <text x="284" y="257.5" font-family="system-ui, -apple-system, 'Segoe UI', Arial, sans-serif" font-size="9" font-weight="700" letter-spacing="0.5" fill="#57606a" text-anchor="middle">LAYER 2</text>
+  <text x="36" y="281" font-family="ui-monospace, 'Cascadia Mono', Consolas, 'Courier New', monospace" font-size="10.5" fill="#24292f">build_test_models.py --verify --no-launch</text>
+  <text x="36" y="298" font-family="system-ui, -apple-system, 'Segoe UI', Arial, sans-serif" font-size="10.5" fill="#57606a">~50 sheets, one per test-model case</text>
+  <text x="36" y="315" font-family="system-ui, -apple-system, 'Segoe UI', Arial, sans-serif" font-size="10.5" fill="#57606a">tee transcript → excel-only-runs/</text>
+
+  <text x="24" y="360" font-family="system-ui, -apple-system, 'Segoe UI', Arial, sans-serif" font-size="10" fill="#57606a">each build opens its own xw.App(visible=False) —</text>
+  <text x="24" y="375" font-family="system-ui, -apple-system, 'Segoe UI', Arial, sans-serif" font-size="10" fill="#57606a">nothing shared between the two Excel instances</text>
+
+  <!-- Artifacts -->
+  <rect x="400" y="122" width="220" height="64" rx="6" fill="#ffffff" stroke="#d0d7de"/>
+  <text x="412" y="150" font-family="ui-monospace, 'Cascadia Mono', Consolas, 'Courier New', monospace" font-size="10.5" font-weight="700" fill="#24292f">dist/Lambda_Library.xlsx</text>
+  <text x="412" y="170" font-family="system-ui, -apple-system, 'Segoe UI', Arial, sans-serif" font-size="10" fill="#57606a">rewritten by every verify-deep run</text>
+
+  <rect x="400" y="238" width="220" height="64" rx="6" fill="#ffffff" stroke="#d0d7de"/>
+  <text x="412" y="266" font-family="ui-monospace, 'Cascadia Mono', Consolas, 'Courier New', monospace" font-size="10.5" font-weight="700" fill="#24292f">Lambda_Library_TestModels.xlsx</text>
+  <text x="412" y="286" font-family="system-ui, -apple-system, 'Segoe UI', Arial, sans-serif" font-size="10" fill="#57606a">repo root · gitignored</text>
+
+  <!-- Ghost: the stale copy a screen-first order would read -->
+  <rect x="400" y="336" width="220" height="56" rx="6" fill="none" stroke="#d0d7de" stroke-dasharray="5 4"/>
+  <text x="412" y="358" font-family="ui-monospace, 'Cascadia Mono', Consolas, 'Courier New', monospace" font-size="10.5" fill="#57606a">dist/Lambda_Library.xlsx</text>
+  <text x="412" y="376" font-family="system-ui, -apple-system, 'Segoe UI', Arial, sans-serif" font-size="10" fill="#8b949e">as last committed — the stale copy</text>
+
+  <!-- Stage 2: the screen -->
+  <rect x="686" y="122" width="270" height="168" rx="6" fill="#f6f8fa" stroke="#d0d7de"/>
+  <text x="698" y="144" font-family="ui-monospace, 'Cascadia Mono', Consolas, 'Courier New', monospace" font-size="12.5" font-weight="700" fill="#24292f">verify-headless</text>
+  <rect x="886" y="130" width="56" height="16" rx="8" fill="#ffffff" stroke="#d0d7de"/>
+  <text x="914" y="141.5" font-family="system-ui, -apple-system, 'Segoe UI', Arial, sans-serif" font-size="9" font-weight="700" letter-spacing="0.5" fill="#57606a" text-anchor="middle">LAYER 1</text>
+  <text x="698" y="165" font-family="ui-monospace, 'Cascadia Mono', Consolas, 'Courier New', monospace" font-size="9.5" fill="#24292f">pytest tests/test_workbook_invariants.py</text>
+  <text x="698" y="184" font-family="system-ui, -apple-system, 'Segoe UI', Arial, sans-serif" font-size="10.5" fill="#57606a">zipfile + lxml reads — no Excel needed</text>
+  <text x="698" y="201" font-family="system-ui, -apple-system, 'Segoe UI', Arial, sans-serif" font-size="10.5" fill="#57606a">dangling names · #REF! / #NAME? literals</text>
+  <text x="698" y="218" font-family="system-ui, -apple-system, 'Segoe UI', Arial, sans-serif" font-size="10.5" fill="#57606a">orphan chart rels · sheet drift</text>
+  <text x="698" y="235" font-family="system-ui, -apple-system, 'Segoe UI', Arial, sans-serif" font-size="10.5" fill="#57606a">screens the committed dist/ artifact</text>
+  <line x1="698" y1="248" x2="944" y2="248" stroke="#d0d7de"/>
+  <text x="698" y="268" font-family="system-ui, -apple-system, 'Segoe UI', Arial, sans-serif" font-size="10.5" font-style="italic" fill="#57606a">a green screen ≠ a workbook that calculates —</text>
+  <text x="698" y="284" font-family="system-ui, -apple-system, 'Segoe UI', Arial, sans-serif" font-size="10.5" font-style="italic" fill="#57606a">cell-level truth is Layer 2's job</text>
+
+  <!-- Arrows: builds → artifacts -->
+  <line x1="326" y1="154" x2="392" y2="154" stroke="#24292f" stroke-width="1.5" marker-end="url(#aI)"/>
+  <text x="360" y="146" font-family="system-ui, -apple-system, 'Segoe UI', Arial, sans-serif" font-size="10" font-style="italic" fill="#24292f" text-anchor="middle">rewrites</text>
+  <line x1="326" y1="270" x2="392" y2="270" stroke="#24292f" stroke-width="1.5" marker-end="url(#aI)"/>
+  <text x="360" y="262" font-family="system-ui, -apple-system, 'Segoe UI', Arial, sans-serif" font-size="10" font-style="italic" fill="#24292f" text-anchor="middle">writes</text>
+
+  <!-- Arrow: fresh artifact → screen (the load-bearing edge) -->
+  <line x1="622" y1="154" x2="680" y2="154" stroke="#1a7f37" stroke-width="2" marker-end="url(#aG)"/>
+  <text x="653" y="146" font-family="system-ui, -apple-system, 'Segoe UI', Arial, sans-serif" font-size="9.5" font-style="italic" fill="#1a7f37" text-anchor="middle">reads fresh ✓</text>
+
+  <!-- Arrow: the stale copy a screen-first order would read -->
+  <path d="M 622 364 L 756 364 L 756 296" fill="none" stroke="#cf222e" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#aR)"/>
+  <text x="628" y="356" font-family="system-ui, -apple-system, 'Segoe UI', Arial, sans-serif" font-size="10" font-style="italic" fill="#cf222e">screen-first reads this ✗</text>
+
+  <!-- Footnotes -->
+  <text x="24" y="424" font-family="system-ui, -apple-system, 'Segoe UI', Arial, sans-serif" font-size="10.5" fill="#57606a">Each stage boundary is a stop — a non-zero exit halts the ladder before the next stage runs.</text>
+  <text x="24" y="440" font-family="system-ui, -apple-system, 'Segoe UI', Arial, sans-serif" font-size="10.5" fill="#57606a">Execution order is the reverse of the layer numbering: the 'Layer 1' screen runs last, over what the 'Layer 2' builds just wrote.</text>
+</svg>

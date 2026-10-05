@@ -276,6 +276,7 @@ from .regression_layout import (  # noqa: F401  — re-exported for importers
     _C_AZ,
     _C_BA,
     _C_BB,
+    _C_BC,
     _C_CHART_LABEL_NAME,
     _C_CHART_TITLE,
     _C_CHART_XLABEL,
@@ -541,12 +542,14 @@ def _write_residual_conditional_formatting(sheet: xw.Sheet) -> None:
         "scale_location":     _band(_C_AW),
         "press_residual":     _band(_C_AX),
         "cooks_flag":         _band(_C_AY),
+        "loocv_unit_residual": _band(_C_BB),
     }
     # Relative per-row anchors for the banded rules (see the note on the
     # coefficient P-value rule above: no $, so the rule walks down the band).
     hat = f"{col_letter(_C_AR)}{_ROW_DATA_FIRST}"
     scale_location = f"{col_letter(_C_AW)}{_ROW_DATA_FIRST}"
     press_residual = f"{col_letter(_C_AX)}{_ROW_DATA_FIRST}"
+    loocv_unit_residual = f"{col_letter(_C_BB)}{_ROW_DATA_FIRST}"
 
     # Remove existing rules so repeated builds do not duplicate them.
     for address in addresses.values():
@@ -658,6 +661,30 @@ def _write_residual_conditional_formatting(sheet: xw.Sheet) -> None:
         addresses["press_residual"],
         f"=AND(ISNUMBER({press_residual}),"
         f"ABS({press_residual})>3*{_A_STANDARD_ERROR})",
+        fill=CF_LIGHT_RED_FILL,
+        font_color=CF_DARK_RED_TEXT,
+    )
+
+    # ── LOOCV Residual (Original Units): the v3.5 leave-one-out residual ────
+    # Scaled against the LOOCV RMSE (Unit) cell at $AH$12 (built from the row
+    # constant, never typed) — the out-of-sample counterpart of the PRESS
+    # rule above, which scales against the in-sample SE at $AB$7.
+    # |r_loo| > 2*LOOCV_RMSE: mild concern; > 3*LOOCV_RMSE: strong concern.
+    loocv_rmse_unit = _abs_ref(_ROW_LOOCV_RMSE_UNIT, _C_AH)
+    add_expression_format(
+        sheet,
+        addresses["loocv_unit_residual"],
+        f"=AND(ISNUMBER({loocv_unit_residual}),"
+        f"ABS({loocv_unit_residual})>2*{loocv_rmse_unit},"
+        f"ABS({loocv_unit_residual})<=3*{loocv_rmse_unit})",
+        fill=CF_YELLOW_FILL,
+        font_color=CF_DARK_YELLOW_TEXT,
+    )
+    add_expression_format(
+        sheet,
+        addresses["loocv_unit_residual"],
+        f"=AND(ISNUMBER({loocv_unit_residual}),"
+        f"ABS({loocv_unit_residual})>3*{loocv_rmse_unit})",
         fill=CF_LIGHT_RED_FILL,
         font_color=CF_DARK_RED_TEXT,
     )
@@ -1978,7 +2005,12 @@ def _write_residuals(sheet: xw.Sheet) -> None:
     # conditional suffix logic above does not apply to them.
     val(sheet, 3, _C_AZ, "Predicted Y (Original Units)")
     val(sheet, 3, _C_BA, "Residual (Original Units)")
-    bold_row(sheet, 3, _C_AN, _C_BA)
+    # v3.5: BB is the leave-one-out sibling of BA — the residual against a
+    # prediction made WITHOUT the row, in original units. In-sample (BA) vs
+    # out-of-sample (BB) side by side is the whole point: the gap between
+    # them is the model's optimism, at row level.
+    val(sheet, 3, _C_BB, "LOOCV Residual (Original Units)")
+    bold_row(sheet, 3, _C_AN, _C_BB)
 
     # AN4: row labels — the spec-derived Row_Labels() filtered to the sample.
     # Row_Labels() has its own no-Identifier fallback ("Obs. n"), so the only
@@ -2049,10 +2081,25 @@ def _write_residuals(sheet: xw.Sheet) -> None:
             f"{_A_BACK_TRANSFORM_METHOD})"
         ),
     )
+    # BB: leave-one-out residual in original units — the observed response in
+    # original units minus the unit-space LOOCV prediction (the same
+    # Prediction_Group_Column() argument the FE leverage correction needs,
+    # ignored by the function when no fixed effects are absorbed). The
+    # PRESS-residual fit-space analogue sits at AX; this is its original-
+    # units counterpart, so an out-of-sample row is readable next to the
+    # in-space diagnostic columns it belongs with.
+    f(
+        sheet, 4, _C_BB,
+        (
+            "=Unit_Space_LOOCV_Residual(Fit_Design_Columns(),Design_Response(),"
+            "Response_Column(),Fit_Sample_Include(),Fit_Context(),"
+            f"{_A_BACK_TRANSFORM_METHOD},Prediction_Group_Column())"
+        ),
+    )
     # Format every numeric residual-output column — the actual Y (AO) through
-    # Residual (Original Units) (BA). Only the AN identifier column (text:
-    # country/Obs. labels) is left unformatted.
-    sheet.range(f"{col_letter(_C_AO)}:{col_letter(_C_BA)}").number_format = "0.0000"
+    # LOOCV Residual (Original Units) (BB). Only the AN identifier column
+    # (text: country/Obs. labels) is left unformatted.
+    sheet.range(f"{col_letter(_C_AO)}:{col_letter(_C_BB)}").number_format = "0.0000"
 
 
 # ── Public entry point ────────────────────────────────────────────────────────
@@ -2174,7 +2221,7 @@ def write_regression_output_sheet(
     _annotate_statistical_terms(sheet, sheet_notes or {})
     _write_residual_conditional_formatting(sheet)
 
-    sheet.range(rc(3, _C_S), rc(3, _C_BA)).api.WrapText = True
+    sheet.range(rc(3, _C_S), rc(3, _C_BB)).api.WrapText = True
 
     # A–O (spec block) widths are owned by write_spec_block.py
     # so the standalone and shared-block builds can never drift.

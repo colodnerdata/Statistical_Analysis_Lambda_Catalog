@@ -3113,7 +3113,7 @@
       "name": "Model_Formula_String",
       "category": "Model Comparison",
       "subcategory": "Spec String & Registry",
-      "formula_display": "=LAMBDA(anchor,\n    LET(\n        ok,    IFERROR(OFFSET(anchor,-2,-31) = \"MODEL SPECIFICATION\", FALSE),\n        label, IFERROR(OFFSET(anchor,-2,45), \"\"),\n        IF(AND(ok, label <> \"\"), label, NA())\n    )\n)",
+      "formula_display": "=LAMBDA(anchor,\n    LET(\n        ok,    IFERROR(OFFSET(anchor,-2,-31) = \"MODEL SPECIFICATION\", FALSE),\n        label, IFERROR(OFFSET(anchor,-2,46), \"\"),\n        IF(AND(ok, label <> \"\"), label, NA())\n    )\n)",
       "arguments": [
         {
           "name": "anchor",

@@ -1,5 +1,5 @@
-python build_production.py 
-Workbook: C:\Users\Stephen_Colodner\windows_code\name-manager-comments\dist\Lambda_Library.xlsx
+python build_production.py --verify --no-launch
+Workbook: C:\Users\Stephen_Colodner\windows_code\Statistical_Analysis_Lambda_Catalog\dist\Lambda_Library.xlsx
 Sheet updated: LAMBDA_functions
 Sheet updated: Life Expectancy Data
 Sheet updated: Mileage Data
@@ -12,10 +12,12 @@ Sheet updated: Model Comparison
 Sheet updated: Version History
 Sheet updated: Regression
 Sheet updated: Univariate
-Created names: 0
+Created names: 5
 Updated names: 130
 Removed names: 0
-Timing: build+sync    139.4s
-Timing: recalculate   14.8s
-Timing: total         154.2s
-Log: C:\Users\Stephen_Colodner\windows_code\name-manager-comments\excel-only-runs\build_production.log
+Verify: passed (spec mode, 66.0s, workbook='C:\\Users\\Stephen_Colodner\\windows_code\\Statistical_Analysis_Lambda_Catalog\\dist\\Lambda_Library.xlsx')
+Timing: build+sync    151.6s
+Timing: recalculate   15.5s
+Timing: verify        66.1s
+Timing: total         233.2s
+Log: C:\Users\Stephen_Colodner\windows_code\Statistical_Analysis_Lambda_Catalog\excel-only-runs\build_production verify no launch.log

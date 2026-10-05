@@ -51,7 +51,7 @@ whether lining them up is legitimate at all.
 
 **Where it is**
 
-The unit-space fit block: R Squared (Unit) at Cell AH7, Adj R Squared (Unit) at Cell AH8 and RMSE (Unit) at Cell AH9, Regression Outputs. The Smearing Factor is at Cell AH6.
+The unit-space fit block: R Squared (Unit) at Cell AH7, Adj R Squared (Unit) at Cell AH8 and SE Regression (Unit) at Cell AH9, Regression Outputs. The Smearing Factor is at Cell AH6, and the CROSS-VALIDATED FIT block directly below adds the out-of-sample pair — LOOCV RMSE at Cell AH12 and LOOCV MAE at Cell AH13, with the Smearing Treatment at Cell AH14.
 
 **What it tells you**
 
@@ -59,7 +59,7 @@ Goodness of fit measured in original response units. The block is built for exac
 
 **What it does not survive**
 
-The only across-transform evidence on the sheet. Both readings must share the Cell AH5 setting — see pre-flight condition 5. Under Fixed Effects with a logged response the unit-space values are total, not within-group.
+The only across-transform evidence on the sheet — the in-sample block and its out-of-sample companion alike. Both readings must share the Cell AH5 setting — see pre-flight condition 5. Under Fixed Effects with a logged response the unit-space values are total, not within-group.
 
 ### Rung 2 — properties of the design and the sample, not of the response scale
 
@@ -339,15 +339,15 @@ The influence surface is Cook's Distance in Col AT, the PRESS Residual column in
 
 That set answers whether individual rows drive the fit. Per-coefficient influence (which row moves which coefficient) is not computed; if a row is flagged, refit without it and compare coefficient tables directly.
 
-### No cross-validation surface beyond PRESS
+### No k-fold, holdout or resampling — leave-one-out only
 
 **What that means**
 
-Leave-one-out cross-validation appears only as the PRESS total at Cell AE5, PRESS R Squared at Cell AE6 and the per-row PRESS Residual column in Col AX. There is no k-fold split, no holdout partition and no repeated resampling.
+Leave-one-out cross-validation appears in both spaces: in fit space as the PRESS total at Cell AE5, PRESS R Squared at Cell AE6 and the per-row PRESS Residual column in Col AX; in original units as the CROSS-VALIDATED FIT block — LOOCV RMSE at Cell AH12, LOOCV MAE at Cell AH13, the Smearing Treatment at Cell AH14 — plus the per-row LOOCV Residual (Original Units) column in Col BB. There is no k-fold split, no holdout partition and no repeated resampling.
 
 **What to do instead**
 
-PRESS is leave-one-out prediction error, so it is the honest out-of-sample comparison this workbook offers. Prefer PRESS R Squared over R² when two specifications spend different numbers of columns.
+LOOCV in original units is the honest out-of-sample comparison for models with different response transforms — fit-space PRESS is same-transform only. Under Fixed Effects the unit-space figures report the equivalent LSDV model's leave-one-out error. Prefer a leave-one-out measure over in-sample R² when two specifications spend different numbers of columns.
 
 ### No conditional formatting on Tolerance
 

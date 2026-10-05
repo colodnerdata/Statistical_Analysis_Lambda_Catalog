@@ -29,7 +29,7 @@ from .catalog_schema import CatalogFunction, load_catalog_document
 from .regression_layout import (
     REGRESSION_SHEET_NAME,
     _CHART_RIGHT_OFFSET_PT,
-    _C_BB,
+    _C_BC,
     _C_DESIGN_MATRIX,
     _C_DESIGN_MATRIX_NAMES,
     _C_GUTTER_AFTER_CHARTS,
@@ -560,7 +560,7 @@ def _write_materialization_zone(
     # the guard, then assert outside it.
     try:
         chart_right = (
-            sheet.range(a1(1, _C_BB)).left + _CHART_RIGHT_OFFSET_PT
+            sheet.range(a1(1, _C_BC)).left + _CHART_RIGHT_OFFSET_PT
         )
         clear_left = sheet.range(a1(1, _LAST_CHART_COLUMN + 1)).left
     except Exception:  # pylint: disable=broad-except — headless / no COM geometry

@@ -1,7 +1,7 @@
 <!-- GENERATED FILE — do not edit. Regenerate: uv run --group docs poe docs-generate -->
 # LAMBDA function reference
 
-Every catalog entry in `lambda_functions.json` — 155
+Every catalog entry in `lambda_functions.json` — 160
 functions. Workbook-scoped names work on any sheet; sheet-scoped names
 (marked) are defined per-sheet.
 
@@ -761,7 +761,7 @@ One statistic (index 1-24) from another Regression sheet. Pass a reference to th
 =LAMBDA(anchor,i,
     LET(
         ok, IFERROR(OFFSET(anchor,-2,-31) = "MODEL SPECIFICATION", FALSE),
-        IF(AND(ok, anchor <> ""),
+        IF(AND(ok, IFERROR(anchor <> "", FALSE)),
             IFERROR(CHOOSE(i,
                 OFFSET(anchor,0,0),
                 OFFSET(anchor,7,2),
@@ -2107,6 +2107,43 @@ v2.1 group-mean-recovery prediction: ŷ=ȳᵢ+(x_new−x̄ᵢ)′β̂. Surfaces 
   ))
 ```
 
+## `Group_Size`
+
+**How many rows share each row's group, counted over the rows the model uses.**
+
+Arguments:
+
+- **group** — the grouping key column — one label per row of the source data
+- **include** — boolean array — TRUE includes the row, FALSE excludes it
+
+Group_Size returns each included row's group size — the count of included rows sharing that row's grouping key.
+
+It follows Group_Mean's shape rather than counting per row: the distinct keys are taken once with UNIQUE, counted once each with BYROW, and mapped back with XLOOKUP. That is O(n x G), not the O(n^2) an all-rows BYROW would cost, which matters on a high-cardinality panel (the 173-group Life Expectancy case).
+
+The output is FILTERED to the included rows, so it aligns positionally with Hat_Diagonal, Residuals and Predictions rather than with the raw source column. Its first consumer is the Fixed Effects branch of Unit_Space_LOOCV_Residual, which needs 1/n_g per row to convert the within design's leverage into the equivalent LSDV design's leverage.
+
+Returns: n x 1 column of group sizes, row-aligned to the INCLUDED rows (the same length and order as Hat_Diagonal's output): each row carries the number of included rows sharing its group. #N/A when no row is included.
+
+Per-row group size over the included rows, aligned to the filtered sample. UNIQUE + BYROW + XLOOKUP (O(n x G), not O(n^2)), the same shape as Group_Mean. #N/A when nothing is included.
+
+```excel
+=LAMBDA(group, [include],
+    LET(
+        g_v,    TOCOL(IF(group = "", "", group), 0),
+        inc,    IF(ISOMITTED(include), (g_v <> ""), include * 1),
+        active, inc * (g_v <> ""),
+        IFERROR(
+            LET(
+                groups, UNIQUE(FILTER(g_v, active)),
+                sizes,  BYROW(groups, LAMBDA(gk, SUMPRODUCT(active, --(g_v = gk)))),
+                FILTER(XLOOKUP(g_v, groups, sizes, NA(), 0), active)
+            ),
+            NA()
+        )
+    )
+)
+```
+
 ## `GVIF`
 
 **How much overlap with the other predictors is inflating a variable's instability — one shared number per variable, even when it spans several dummy columns.**
@@ -2696,7 +2733,7 @@ Another Regression sheet's model formula string, read from its Comparison_Model_
 =LAMBDA(anchor,
     LET(
         ok,    IFERROR(OFFSET(anchor,-2,-31) = "MODEL SPECIFICATION", FALSE),
-        label, IFERROR(OFFSET(anchor,-2,45), ""),
+        label, IFERROR(OFFSET(anchor,-2,46), ""),
         IF(AND(ok, label <> ""), label, NA())
     )
 )
@@ -4096,6 +4133,38 @@ Duan (1983) smearing factor: 1.0 when Context_Response_Transform = "None"; AVERA
 )
 ```
 
+## `Smearing_Treatment`
+
+**Names the smearing treatment in words — n/a (no transform), Naive (no smearing), or Full-sample Duan (approx.). The leak fold-specific Duan would close is named here, not hidden.**
+
+Arguments:
+
+- **Context** — the materialized Model_Context() 4x1 array; defaults to VSTACK(TRUE,0,"None","None") when omitted
+- **Method** — Duan (default) or Naive; selects which smearing treatment is named
+
+Smearing_Treatment names on the sheet how the Duan smearing factor was estimated, so the small optimism it introduces is visible rather than hidden. Under Duan the smearing factor is the mean of EXP(residuals) over the full included sample — the held-out row included in every LOO residual — so each leave-one-out residual is back-transformed with a factor estimated on data that row was part of. The leak is small but real, and naming it is what separates "we approximated" from "we didn't notice". The SWITCH is the extension point: fold-specific Duan (a smearing factor estimated on the n − 1 in-sample rows, excluding the held-out row) arrives as a fourth arm plus a third item on the AH4 validation list, with no restructuring — the text here and the formula in Unit_Space_LOOCV_Residual change in lockstep. Text is kept short because column AH is 16 wide; the full explanation of what is approximated lives in the hover Note on the AG13 label. Naive back-transformation applies no smearing, so it is named honestly as no smearing rather than as an approximation.
+
+Returns: Text scalar naming how the smearing factor was obtained: "n/a — no back-transform" when the response is untransformed; "Naive (no smearing)" under Log + Naive; "Full-sample Duan (approx.)" under Log + Duan; #N/A for an unrecognised transform or method.
+
+Pure function of (response_transform, method). None→"n/a — no back-transform"; Log+Naive→"Naive (no smearing)"; Log+Duan→"Full-sample Duan (approx.)"; else #N/A. Fold-specific Duan = 4th SWITCH arm, added in lockstep with Unit_Space_LOOCV_Residual.
+
+```excel
+=LAMBDA([Context], [Method],
+  LET(
+    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),
+    method_arg,  IF(ISOMITTED(Method), "Duan", Method),
+    rt,          Context_Response_Transform(context_arg),
+    IF(rt = "None", "n/a — no back-transform",
+      IF(rt = "Log",
+        SWITCH(method_arg,
+          "Naive", "Naive (no smearing)",
+          "Duan",  "Full-sample Duan (approx.)",
+          NA()),
+        NA()))
+  )
+)
+```
+
 ## `Spearman_R`
 
 **The rank-order relationship between each predictor and the outcome.**
@@ -4451,6 +4520,130 @@ Returns: Unit-space Adjusted R² as a scalar. 1 − (1 − R²_unit) × df_total
     1 - (1 - Unit_Space_R_Squared(X, Y, Y_Full, filt_arg, context_arg, IF(ISOMITTED(Method),"Duan",Method)))
       * Total_Degrees_Of_Freedom(Y, filt_arg, context_arg)
       / Residual_Degrees_Of_Freedom(X, Y, filt_arg, context_arg)
+  )
+)
+```
+
+## `Unit_Space_LOOCV_MAE`
+
+**Leave-one-out MAE in response units — AVERAGE(|LOO residual|). Same n divisor as the LOO RMSE; less sensitive to high-leverage outliers.**
+
+Arguments:
+
+- **X** — design matrix — the constructed model columns, including the intercept column when the model has one
+- **Y** — single-column outcome in fit space: transformed under Log, within-demeaned under FE
+- **Y_Full** — Response_Column() — the FIT-space response with the within-demean removed (ln(y) under a Log Response row), NOT the observed response in original units; the function back-transforms it internally.
+- **Include** — boolean array — TRUE includes the row, FALSE excludes it
+- **Context** — the materialized Model_Context() 4x1 array; defaults to VSTACK(TRUE,0,"None","None") when omitted
+- **Method** — Duan (default) or Naive; passed through to Unit_Space_LOOCV_Residual
+- **FE_Group** — the Fixed Effects grouping column (Prediction_Group_Column() on the Regression sheet). REQUIRED when the model absorbs fixed effects: without it the leave-one-out leverage cannot be corrected to the equivalent LSDV design, so the function returns #N/A rather than the conditional number. Ignored when Context_DF_Absorbed is 0.
+
+Unit_Space_LOOCV_MAE is the mean absolute leave-one-out residual in response units: AVERAGE(ABS(Unit_Space_LOOCV_Residual(...))). It complements Unit_Space_LOOCV_RMSE as a robustness check — MAE is less sensitive to the single large LOO residual a high-leverage point produces, so a pair where RMSE ≫ MAE flags a heavy-tailed leverage distribution (the corner the P08 test-model case exists for). The divisor is the same n the RMSE uses, so the two read on the same sample. IFERROR maps a propagating #N/A (a leverage-1 row, or an out-of-pair transform) to #N/A rather than a silent AVERAGE over a shortened column.
+
+Returns: Leave-one-out MAE in response units as a scalar: AVERAGE(|r_loo|). Averages over the same n the RMSE divisor uses. #N/A outside the six recognised (response, predictor) pairs, and #N/A propagates from any leverage-1 row through the AVERAGE.
+
+AVERAGE(ABS(Unit_Space_LOOCV_Residual(...))). Same n as LOOCV_RMSE. MAE < RMSE flags a heavy-tailed leverage spread. IFERROR → #N/A on propagation.
+
+```excel
+=LAMBDA(X, Y, Y_Full, [Include], [Context], [Method], [FE_Group],
+  LET(
+    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),
+    filt_arg,    IF(ISOMITTED(Include), TRUE, Include),
+    method_arg,  IF(ISOMITTED(Method), "Duan", Method),
+    r,           IF(ISOMITTED(FE_Group),
+                    Unit_Space_LOOCV_Residual(X, Y, Y_Full, filt_arg,
+                                              context_arg, method_arg),
+                    Unit_Space_LOOCV_Residual(X, Y, Y_Full, filt_arg,
+                                              context_arg, method_arg, FE_Group)),
+    IFERROR(AVERAGE(ABS(r)), NA())
+  )
+)
+```
+
+## `Unit_Space_LOOCV_Residual`
+
+**Leave-one-out residuals in response units — observed y minus the back-transformed LOO prediction. #N/A where leverage is 1.**
+
+Arguments:
+
+- **X** — design matrix — the constructed model columns, including the intercept column when the model has one
+- **Y** — single-column outcome in fit space: transformed under Log, within-demeaned under FE
+- **Y_Full** — Response_Column() — the FIT-space response with the within-demean removed (ln(y) under a Log Response row), NOT the observed response in original units; the function back-transforms it internally.
+- **Include** — boolean array — TRUE includes the row, FALSE excludes it
+- **Context** — the materialized Model_Context() 4x1 array; defaults to VSTACK(TRUE,0,"None","None") when omitted
+- **Method** — Duan (default) or Naive; passed through to Back_Transform_Response so the LOO residual corresponds to the back-transform method the sheet shows
+- **FE_Group** — the Fixed Effects grouping column (Prediction_Group_Column() on the Regression sheet). REQUIRED when the model absorbs fixed effects: without it the leave-one-out leverage cannot be corrected to the equivalent LSDV design, so the function returns #N/A rather than the conditional number. Ignored when Context_DF_Absorbed is 0.
+
+Unit_Space_LOOCV_Residual is Unit_Space_Predictions with the fitted vector replaced by LOOCV_Prediction: the observed response in original units (Unit_Space_Observed, never smeared) minus the back-transform of the leave-one-out fitted value. The level shift (Y_Full − Y on the filtered sample, gated on Log) is added to the LOO fit before back-transformation, exactly as Unit_Space_Predictions adds it to the in-sample fit, so under Fixed Effects the LOO prediction is a predicted group log-response rather than a group deviation. The smearing factor is the full-sample Smearing_Factor(X, Y, Include, Context) — estimated on all n in-sample residuals, the held-out row included — so each Duan LOO residual carries a small, named optimism. The IFERROR(..., NA()) around LOOCV_Prediction + shift mirrors LOOCV_Residual's own IFERROR(e / (1 - h), NA()): a row with h_i = 1 yields #N/A, not #DIV/0!. The six-arm SWITCH on (response_transform, predictor_transform) is repeated rather than delegated because no Unit_Space_* function owns the LOO fitted vector; outside the six pairs the result is #N/A. Reduction invariant: with Transform = None and no FE, Unit_Space_LOOCV_Residual = LOOCV_Residual exactly.
+
+Returns: n × 1 column of leave-one-out residuals in response units (observed response in original units minus the back-transformed LOO fitted value). #N/A on a row whose leverage h_i = 1 (LOOCV_Prediction divides by 1 − h_i), and #N/A outside the six recognised (response, predictor) pairs.
+
+y_unit - Back_Transform_Response(LOOCV_Prediction(X,Y,Include)+shift, Method, Smearing_Factor). Full-sample smearing (held-out row in) — named by Smearing_Treatment. IFERROR for h_i=1. Six pairs else #N/A. = LOOCV_Residual under None.
+
+```excel
+=LAMBDA(X, Y, Y_Full, [Include], [Context], [Method], [FE_Group],
+  LET(
+    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),
+    filt_arg,    IF(ISOMITTED(Include), TRUE, Include),
+    method_arg,  IF(ISOMITTED(Method), "Duan", Method),
+    fe_arg,      IF(ISOMITTED(FE_Group), "", FE_Group),
+    rt,          Context_Response_Transform(context_arg),
+    pt,          Context_Predictor_Transform(context_arg),
+    absorbed,    Context_DF_Absorbed(context_arg),
+    sm,          Smearing_Factor(X, Y, filt_arg, context_arg),
+    shift,       IF(rt = "Log", FILTER(Y_Full, filt_arg) - FILTER(Y, filt_arg), 0),
+    e,           Residuals(X, Y, filt_arg),
+    h_fit,       Hat_Diagonal(X, filt_arg),
+    n_obs,       ROWS(h_fit),
+    h,           IF(absorbed = 0,
+                    h_fit,
+                    h_fit - 1 / n_obs + 1 / Group_Size(fe_arg, filt_arg)),
+    fitted,      Predictions(X, Y, filt_arg) + shift,
+    loo_fit,     IFERROR(fitted - h * e / (1 - h), NA()),
+    y_unit,      Unit_Space_Observed(Y, Y_Full, filt_arg, context_arg),
+    r_loo,       y_unit - Back_Transform_Response(loo_fit, context_arg, method_arg, sm),
+    fe_ok,       OR(absorbed = 0, NOT(ISOMITTED(FE_Group))),
+    IF(NOT(fe_ok), NA(),
+      SWITCH(rt & "|" & pt,
+        "None|None", r_loo, "None|Log", r_loo, "None|Mixed", r_loo,
+        "Log|None",  r_loo, "Log|Log",  r_loo, "Log|Mixed",  r_loo,
+        NA()))
+  )
+)
+```
+
+## `Unit_Space_LOOCV_RMSE`
+
+**Leave-one-out RMSE in response units — SQRT(Σ LOO residual² / n). Divides by n, not df, because every LOO prediction is out-of-sample.**
+
+Arguments:
+
+- **X** — design matrix — the constructed model columns, including the intercept column when the model has one
+- **Y** — single-column outcome in fit space: transformed under Log, within-demeaned under FE
+- **Y_Full** — Response_Column() — the FIT-space response with the within-demean removed (ln(y) under a Log Response row), NOT the observed response in original units; the function back-transforms it internally.
+- **Include** — boolean array — TRUE includes the row, FALSE excludes it
+- **Context** — the materialized Model_Context() 4x1 array; defaults to VSTACK(TRUE,0,"None","None") when omitted
+- **Method** — Duan (default) or Naive; passed through to Unit_Space_LOOCV_Residual
+- **FE_Group** — the Fixed Effects grouping column (Prediction_Group_Column() on the Regression sheet). REQUIRED when the model absorbs fixed effects: without it the leave-one-out leverage cannot be corrected to the equivalent LSDV design, so the function returns #N/A rather than the conditional number. Ignored when Context_DF_Absorbed is 0.
+
+Unit_Space_LOOCV_RMSE is the root mean square of Unit_Space_LOOCV_Residual over the included sample: SQRT(SUMSQ(r_loo) / ROWS(r_loo)). The divisor is n (ROWS of the residual column), not the residual degrees of freedom that Unit_Space_RMSE uses. The distinction is deliberate: every leave-one-out prediction is a genuine out-of-sample prediction, so no degrees of freedom are spent estimating the mean, and n — not n − p — is the right average. MAE averages over the same n, so the pair reads consistently. ROWS(r), not COUNT(r): an #N/A row (leverage h_i = 1) propagates through SUMSQ regardless, so the divisor stays the sample size the fit used — the same behaviour PRESS has. Reduction invariant: with Transform = None and no FE, Unit_Space_LOOCV_RMSE = SQRT(PRESS / n) exactly.
+
+Returns: Leave-one-out RMSE in response units as a scalar: SQRT(Σ r_loo² / n). The divisor is n, not n − p — every LOO prediction is genuinely out-of-sample, so no degrees of freedom are consumed. #N/A outside the six recognised (response, predictor) pairs.
+
+SQRT(SUMSQ(Unit_Space_LOOCV_Residual(...)) / ROWS(r)). Divisor n (not df_residual) — LOO predictions cost no df. ROWS not COUNT so an #N/A row still propagates. Reduces to SQRT(PRESS/n) under None / no FE.
+
+```excel
+=LAMBDA(X, Y, Y_Full, [Include], [Context], [Method], [FE_Group],
+  LET(
+    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),
+    filt_arg,    IF(ISOMITTED(Include), TRUE, Include),
+    method_arg,  IF(ISOMITTED(Method), "Duan", Method),
+    r,           IF(ISOMITTED(FE_Group),
+                    Unit_Space_LOOCV_Residual(X, Y, Y_Full, filt_arg,
+                                              context_arg, method_arg),
+                    Unit_Space_LOOCV_Residual(X, Y, Y_Full, filt_arg,
+                                              context_arg, method_arg, FE_Group)),
+    IFERROR(SQRT(SUMSQ(r) / ROWS(r)), NA())
   )
 )
 ```

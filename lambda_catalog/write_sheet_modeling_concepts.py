@@ -196,7 +196,7 @@ _FEATURES: list[list[str]] = [
 
 _PLANNED_FEATURES: list[list[str]] = [
     [
-        "Weight — WLS\n(Role = Weight, v3.7)\nPLANNED, future release",
+        "Weight — WLS\n(Role = Weight, v3.8)\nPLANNED, future release",
         "Some observations are known to be noisier than others — each row "
         "averages a different number of underlying readings, or a variance "
         "you can quantify at row level. OLS gives the noisy rows the same "
@@ -209,7 +209,7 @@ _PLANNED_FEATURES: list[list[str]] = [
         "quadratic term when the variance tracks a predictor's mean.",
     ],
     [
-        "Cluster\n(Role = Cluster, v3.5)\nPLANNED, future release",
+        "Cluster\n(Role = Cluster, v3.6)\nPLANNED, future release",
         "Rows collected in groups — plants, firms, countries — share "
         "unmodeled shocks, so nominally-independent standard errors are "
         "too optimistic (they overstate significance).",
@@ -222,7 +222,7 @@ _PLANNED_FEATURES: list[list[str]] = [
         "stop assuming every row is independent.",
     ],
     [
-        "Time\n(Role = Time, v3.6)\nPLANNED, future release",
+        "Time\n(Role = Time, v3.7)\nPLANNED, future release",
         "A panel needs an explicit time index distinct from 'which group a "
         "row belongs to' — lag and difference features must follow time "
         "within a unit, not sheet order.",
@@ -235,7 +235,7 @@ _PLANNED_FEATURES: list[list[str]] = [
         "lag/difference features.",
     ],
     [
-        "Two-way Fixed Effects\n(v3.8)\nPLANNED, future release",
+        "Two-way Fixed Effects\n(v3.10)\nPLANNED, future release",
         "Sometimes the stable nuisance is two-dimensional — both the plant "
         "AND the year leave a fixed mark on every observation, and "
         "absorbing only one of them leaves the other confounding the "

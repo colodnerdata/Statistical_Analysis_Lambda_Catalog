@@ -111,7 +111,7 @@ Yearly observations per country: set Year to Sequence = TRUE and a year-over-yea
 Declared in the sheet's structure but not built in this release — see
 the workbook sheet for the same rows.
 
-### Weight — WLS (Role = Weight, v3.7) PLANNED, future release
+### Weight — WLS (Role = Weight, v3.8) PLANNED, future release
 
 **What Problem It Solves**
 
@@ -125,7 +125,7 @@ Weighted Least Squares: each row enters the fit scaled by its known variance, so
 
 Today's workaround is the Diagnostic Guide's heteroscedasticity guidance: a Log transform on the response, or an interaction / quadratic term when the variance tracks a predictor's mean.
 
-### Cluster (Role = Cluster, v3.5) PLANNED, future release
+### Cluster (Role = Cluster, v3.6) PLANNED, future release
 
 **What Problem It Solves**
 
@@ -139,7 +139,7 @@ Clustered-robust variance estimator: the same coefficients, with standard errors
 
 Survey or panel data where rows within one cluster move together: name the cluster column and the P-values and confidence intervals stop assuming every row is independent.
 
-### Time (Role = Time, v3.6) PLANNED, future release
+### Time (Role = Time, v3.7) PLANNED, future release
 
 **What Problem It Solves**
 
@@ -153,7 +153,7 @@ Time-index designation: the Role names the column holding each row's time value;
 
 Until then, the Sequence flag (column H) plus its Sequence Period override already carries the ordering axis for the shipped lag/difference features.
 
-### Two-way Fixed Effects (v3.8) PLANNED, future release
+### Two-way Fixed Effects (v3.10) PLANNED, future release
 
 **What Problem It Solves**
 

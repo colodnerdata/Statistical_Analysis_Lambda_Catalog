@@ -2719,6 +2719,27 @@
       "notes": "Group mean per row's own group, over included members only; full-height (a row's own inclusion doesn't gate its output). #N/A for a blank group or a group with no included members. Backs Demean_By."
     },
     {
+      "name": "Group_Size",
+      "category": "Data Transformation",
+      "subcategory": "Group & Panel",
+      "formula_display": "=LAMBDA(group, [include],\n    LET(\n        g_v,    TOCOL(IF(group = \"\", \"\", group), 0),\n        inc,    IF(ISOMITTED(include), (g_v <> \"\"), include * 1),\n        active, inc * (g_v <> \"\"),\n        IFERROR(\n            LET(\n                groups, UNIQUE(FILTER(g_v, active)),\n                sizes,  BYROW(groups, LAMBDA(gk, SUMPRODUCT(active, --(g_v = gk)))),\n                FILTER(XLOOKUP(g_v, groups, sizes, NA(), 0), active)\n            ),\n            NA()\n        )\n    )\n)",
+      "arguments": [
+        {
+          "name": "group",
+          "description": "the grouping key column — one label per row of the source data"
+        },
+        {
+          "name": "include",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        }
+      ],
+      "yields": "n x 1 column of group sizes, row-aligned to the INCLUDED rows (the same length and order as Hat_Diagonal's output): each row carries the number of included rows sharing its group. #N/A when no row is included.",
+      "description": "Group_Size returns each included row's group size — the count of included rows sharing that row's grouping key.\n\nIt follows Group_Mean's shape rather than counting per row: the distinct keys are taken once with UNIQUE, counted once each with BYROW, and mapped back with XLOOKUP. That is O(n x G), not the O(n^2) an all-rows BYROW would cost, which matters on a high-cardinality panel (the 173-group Life Expectancy case).\n\nThe output is FILTERED to the included rows, so it aligns positionally with Hat_Diagonal, Residuals and Predictions rather than with the raw source column. Its first consumer is the Fixed Effects branch of Unit_Space_LOOCV_Residual, which needs 1/n_g per row to convert the within design's leverage into the equivalent LSDV design's leverage.",
+      "plain_language_summary": "How many rows share each row's group, counted over the rows the model uses.",
+      "notes": "Per-row group size over the included rows, aligned to the filtered sample. UNIQUE + BYROW + XLOOKUP (O(n x G), not O(n^2)), the same shape as Group_Mean. #N/A when nothing is included."
+    },
+    {
       "name": "Demean_By",
       "category": "Data Transformation",
       "subcategory": "Group & Panel",

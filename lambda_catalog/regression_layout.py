@@ -336,6 +336,18 @@ _A_PRED_OUTPUT_BAND = f"{_A_PRED_POINT_ESTIMATE}:{_A_PRED_PI_UPPER}"
 _A_UNIT_GOF_TRIPLET = (
     f"{_A_UNIT_R_SQUARED}:{_abs_ref(_ROW_UNIT_RMSE, _C_AH)}"
 )
+# The v3.5 CROSS-VALIDATED FIT sub-block sits at rows 11–14, below the v3.3
+# block's rows 4–10 — so the v3.3 rows and the Comparison_Headline_GoF range
+# ($AH$7:$AH$9) are untouched.
+_ROW_LOOCV_SUBHEADING = 11
+_ROW_LOOCV_RMSE_UNIT = 12
+_ROW_LOOCV_MAE_UNIT = 13
+_ROW_SMEARING_TREATMENT = 14
+# The sub-block's readouts, read by the static reference sheets the same way
+# the v3.3 unit-space rows above are.
+_A_LOOCV_RMSE_UNIT = _abs_ref(_ROW_LOOCV_RMSE_UNIT, _C_AH)
+_A_LOOCV_MAE_UNIT = _abs_ref(_ROW_LOOCV_MAE_UNIT, _C_AH)
+_A_SMEARING_TREATMENT = _abs_ref(_ROW_SMEARING_TREATMENT, _C_AH)
 # The two back-transform methods, and the default written into AH5 as a
 # LITERAL. The cell is an input: it must never hold a formula that reads its
 # own address (a circular reference), and the validation list below is what
@@ -727,6 +739,47 @@ _BACK_TRANSFORM_NOTE = (
     "Duan the point estimate does not sit at the centre of its interval. "
     "That gap is correct, not a defect: the mean and the median of a "
     "skewed distribution are different numbers."
+)
+
+# Smearing Treatment — the v3.5 LOOCV sub-block names how the Duan smearing
+# factor was estimated, so the small optimism it introduces is on the sheet
+# rather than hidden. The hover Note carries the full explanation (the in-cell
+# text is kept short because column AH is 16 wide), following the sheet's
+# status-cell convention: short message in-cell, guidance on hover.
+_SMEARING_TREATMENT_NOTE = (
+    "Smearing Treatment — how the Duan smearing factor used by the LOOCV "
+    "residual was obtained.\n\n"
+    "n/a — the response is untransformed, so nothing is back-transformed "
+    "and no smearing factor is involved.\n"
+    "Naive (no smearing) — EXP(ŷ) only; the conditional median, no factor.\n"
+    "Full-sample Duan (approx.) — the smearing factor is the mean of "
+    "EXP(residuals) over the full included sample, the held-out row INCLUDED "
+    "in every leave-one-out residual. Each LOO residual is therefore back-"
+    "transformed with a factor estimated on data that row was part of. The "
+    "optimism is small but real: this cell names it rather than hiding it.\n\n"
+    "Fold-specific Duan — a smearing factor estimated on the n−1 in-sample "
+    "rows only, excluding the held-out row — is the exact form and removes "
+    "the leak. It is a future addition: a fourth SWITCH arm in "
+    "Smearing_Treatment plus a third item on the AH5 validation list, changed "
+    "in lockstep with Unit_Space_LOOCV_Residual's smearing call."
+)
+
+# SE Regression (Unit) — AG9. Relabelled from "RMSE (Unit)" in v3.5 so the
+# label stops promising ÷ n while the LOOCV RMSE row below genuinely delivers
+# it. The formula is unchanged: SQRT(SSE_unit / df_residual), the same divisor
+# SE_Regression uses, which is the v3.3 reduction invariant
+# (Unit_Space_RMSE ≡ SE_Regression under Transform = None). The divisor
+# question itself is filed as an OPEN TODO rather than changed here — see
+# docs/TODOs.md and docs/DECISIONS.md.
+_SE_REGRESSION_UNIT_NOTE = (
+    "SE Regression (Unit) — the standard error of the regression in response "
+    "units: SQRT(SSE_unit / df_residual), the SAME divisor SE_Regression uses "
+    "(not ÷ n, despite the old \"RMSE\" label). Under Transform = None this "
+    "equals SE_Regression exactly — the v3.3 reduction invariant. The label "
+    "changed in v3.5 to stop promising ÷ n; the LOOCV RMSE (Unit) row below "
+    "is the one that genuinely divides by n, because every leave-one-out "
+    "prediction is out-of-sample and costs no degrees of freedom. The divisor "
+    "question is filed as an OPEN TODO, not changed here."
 )
 
 _PREDICTION_INPUT_NOTE = (

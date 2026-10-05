@@ -3737,6 +3737,28 @@
       "description": "Unit_Space_LOOCV_MAE is the mean absolute leave-one-out residual in response units: AVERAGE(ABS(Unit_Space_LOOCV_Residual(...))). It complements Unit_Space_LOOCV_RMSE as a robustness check — MAE is less sensitive to the single large LOO residual a high-leverage point produces, so a pair where RMSE ≫ MAE flags a heavy-tailed leverage distribution (the corner the P08 test-model case exists for). The divisor is the same n the RMSE uses, so the two read on the same sample. IFERROR maps a propagating #N/A (a leverage-1 row, or an out-of-pair transform) to #N/A rather than a silent AVERAGE over a shortened column.",
       "plain_language_summary": "Leave-one-out MAE in response units — AVERAGE(|LOO residual|). Same n divisor as the LOO RMSE; less sensitive to high-leverage outliers.",
       "notes": "AVERAGE(ABS(Unit_Space_LOOCV_Residual(...))). Same n as LOOCV_RMSE. MAE < RMSE flags a heavy-tailed leverage spread. IFERROR → #N/A on propagation."
+    },
+    {
+      "name": "Smearing_Treatment",
+      "category": "Model Construction",
+      "subcategory": "Back-Transformation",
+      "formula_display": "=LAMBDA([Context], [Method],\n  LET(\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    method_arg,  IF(ISOMITTED(Method), \"Duan\", Method),\n    rt,          Context_Response_Transform(context_arg),\n    IF(rt = \"None\", \"n/a — no back-transform\",\n      IF(rt = \"Log\",\n        SWITCH(method_arg,\n          \"Naive\", \"Naive (no smearing)\",\n          \"Duan\",  \"Full-sample Duan (approx.)\",\n          NA()),\n        NA()))\n  )\n)",
+      "arguments": [
+        {
+          "name": "Context",
+          "description": "the materialized Model_Context() 4x1 array; defaults to VSTACK(TRUE,0,\"None\",\"None\") when omitted",
+          "optional": true
+        },
+        {
+          "name": "Method",
+          "description": "Duan (default) or Naive; selects which smearing treatment is named",
+          "optional": true
+        }
+      ],
+      "yields": "Text scalar naming how the smearing factor was obtained: \"n/a — no back-transform\" when the response is untransformed; \"Naive (no smearing)\" under Log + Naive; \"Full-sample Duan (approx.)\" under Log + Duan; #N/A for an unrecognised transform or method.",
+      "description": "Smearing_Treatment names on the sheet how the Duan smearing factor was estimated, so the small optimism it introduces is visible rather than hidden. Under Duan the smearing factor is the mean of EXP(residuals) over the full included sample — the held-out row included in every LOO residual — so each leave-one-out residual is back-transformed with a factor estimated on data that row was part of. The leak is small but real, and naming it is what separates \"we approximated\" from \"we didn't notice\". The SWITCH is the extension point: fold-specific Duan (a smearing factor estimated on the n − 1 in-sample rows, excluding the held-out row) arrives as a fourth arm plus a third item on the AH4 validation list, with no restructuring — the text here and the formula in Unit_Space_LOOCV_Residual change in lockstep. Text is kept short because column AH is 16 wide; the full explanation of what is approximated lives in the hover Note on the AG13 label. Naive back-transformation applies no smearing, so it is named honestly as no smearing rather than as an approximation.",
+      "plain_language_summary": "Names the smearing treatment in words — n/a (no transform), Naive (no smearing), or Full-sample Duan (approx.). The leak fold-specific Duan would close is named here, not hidden.",
+      "notes": "Pure function of (response_transform, method). None→\"n/a — no back-transform\"; Log+Naive→\"Naive (no smearing)\"; Log+Duan→\"Full-sample Duan (approx.)\"; else #N/A. Fold-specific Duan = 4th SWITCH arm, added in lockstep with Unit_Space_LOOCV_Residual."
     }
   ],
   "regression_sheet_notes": {

@@ -149,7 +149,7 @@ _CAMEL_CASE_WORD = re.compile(r"^[A-Z][a-z]+$")
 _NATIVE_EXCEL = frozenset(
     {
         "AND", "BYROW", "COUNT", "DEVSQ", "EXP", "IF", "INDEX", "ISNA",
-        "LET", "LN", "MAP", "MAX", "MIN", "MOD", "NA", "ROWS", "SUM",
+        "LET", "LN", "MAP", "MAX", "MIN", "MOD", "NA", "ROWS", "SQRT", "SUM",
         "SUMSQ", "TAKE",
     }
 )
@@ -181,10 +181,12 @@ _SHEET_READER_NAMES = frozenset({"Fit_Context", "Fit_Design_Columns", "Fit_Sampl
 _RETIRED = frozenset({"X_s", "X_s_Within"})
 
 # Call-shaped tokens that are not function references at all: CDF is prose
-# shorthand for the CDF_* family ("`CDF(upper edge) − CDF(lower edge)`"), and
-# BS/BU/BW are the zone column letters in ARCHITECTURE's Univariate band
-# diagram, where the parenthesis is a width annotation, not a call.
-_DOC_SHORTHAND = frozenset({"CDF", "BS", "BU", "BW"})
+# shorthand for the CDF_* family ("`CDF(upper edge) − CDF(lower edge)`"),
+# RMSE is the same shorthand for the error measures ("`RMSE (Unit)`" is the
+# pre-v3.5 row label the relabel prose quotes, not a call), and BS/BU/BW are
+# the zone column letters in ARCHITECTURE's Univariate band diagram, where the
+# parenthesis is a width annotation, not a call.
+_DOC_SHORTHAND = frozenset({"CDF", "RMSE", "BS", "BU", "BW"})
 
 
 def _catalog_names() -> set[str]:

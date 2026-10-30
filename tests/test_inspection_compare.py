@@ -91,3 +91,35 @@ def test_residual_band_families_are_disjoint_and_exclude_t_statistics() -> None:
     assert "Predictions" in _RESPONSE_UNIT_STATS
     assert "Residuals" in _RESPONSE_UNIT_STATS
     assert "Studentized_Residuals" in _STANDARDIZED_RESIDUAL_STATS
+
+
+def test_unit_space_family_is_disjoint_from_the_fit_space_residual_band() -> None:
+    """The original-units columns must not share the fit-space divisor.
+
+    ``_RESPONSE_UNIT_STATS`` is scaled by the RMS of ``Design_Response()``,
+    which under a Log response is in LOG units. The AZ/BA/BB columns are in
+    ORIGINAL units. Putting them in the same set hands a divisor of the wrong
+    order of magnitude to ``compare_values`` — on P08, ~11.7 against errors of
+    order 13,000, so the precision floor is never applied; on a sub-unit Log
+    response it runs the other way and makes the check too permissive.
+    """
+    from lambda_catalog.regression_spec_sheet_io import (
+        _RESPONSE_UNIT_SCALARS,
+        _RESPONSE_UNIT_STATS,
+        _STANDARDIZED_RESIDUAL_STATS,
+        _UNIT_SPACE_RESPONSE_STATS,
+    )
+
+    assert not (_UNIT_SPACE_RESPONSE_STATS & _RESPONSE_UNIT_STATS)
+    assert not (_UNIT_SPACE_RESPONSE_STATS & _STANDARDIZED_RESIDUAL_STATS)
+    assert not (_UNIT_SPACE_RESPONSE_STATS & _RESPONSE_UNIT_SCALARS)
+    assert _UNIT_SPACE_RESPONSE_STATS == {
+        "Unit_Space_Predictions",
+        "Unit_Space_Residuals",
+        "Unit_Space_LOOCV_Residual",
+    }
+    assert _RESPONSE_UNIT_SCALARS == {
+        "Unit_Space_RMSE",
+        "Unit_Space_LOOCV_RMSE",
+        "Unit_Space_LOOCV_MAE",
+    }

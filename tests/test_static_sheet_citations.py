@@ -55,6 +55,8 @@ from lambda_catalog.regression_layout import (
     _A_DESIGN_COLUMNS_TOTAL,
     _A_DURBIN_WATSON,
     _A_F_STATISTIC,
+    _A_LOOCV_MAE_UNIT,
+    _A_LOOCV_RMSE_UNIT,
     _A_MEAN_LEVERAGE,
     _A_MULTIPLE_R,
     _A_OBSERVATIONS,
@@ -67,6 +69,7 @@ from lambda_catalog.regression_layout import (
     _A_R_SQUARED,
     _A_SIGNIFICANCE_F,
     _A_SMEARING_FACTOR,
+    _A_SMEARING_TREATMENT,
     _A_STANDARD_ERROR,
     _A_UNIT_ADJUSTED_R_SQUARED,
     _A_UNIT_RMSE,
@@ -80,6 +83,7 @@ from lambda_catalog.regression_layout import (
     _C_AT,
     _C_AW,
     _C_AX,
+    _C_BB,
     _C_X,
     _C_Y,
 )
@@ -126,6 +130,9 @@ _CELL_PINS: dict[str, str] = {
     "AH8": _A_UNIT_ADJUSTED_R_SQUARED,
     "AH9": _A_UNIT_RMSE,
     "AH10": _A_RESPONSE_SPACE,
+    "AH12": _A_LOOCV_RMSE_UNIT,
+    "AH13": _A_LOOCV_MAE_UNIT,
+    "AH14": _A_SMEARING_TREATMENT,
     # The spec block's own anchors, from spec_layout rather than
     # regression_layout: C2 is the intercept toggle, J2 the first of the three
     # Fixed Effects readouts, O1 the design-column total. I2 is the Spacing
@@ -156,6 +163,7 @@ _COLUMN_PINS: dict[str, int] = {
     "AT": _C_AT,
     "AW": _C_AW,
     "AX": _C_AX,
+    "BB": _C_BB,
 }
 
 # The writers that cite sheet addresses in their content, declared rather than
